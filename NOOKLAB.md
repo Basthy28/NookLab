@@ -1,45 +1,40 @@
-# NookLab
+# NookLab Fork Guide
 
-Fork experimental do [Notesnook](https://github.com/streetwriters/notesnook), mantido por Basthy28.
+NookLab is maintained as a clean, atomic patch stack on branch `nooklab`, rebased directly on top of `streetwriters/notesnook` (`upstream/master`).
 
-As notas **não** são copiadas para outro sítio: o NookLab aponta para o **mesmo servidor** e usa a **mesma conta e chave de encriptação**. por isso as notas são idênticas entre a app oficial e o NookLab.
+## Patch Stack (`upstream/master..nooklab`)
 
-## Servidor
+1. `misc: rebrand fork, URLs, manifests, and red icons to NookLab`
+2. `web: add ColorNote-style colored grid view`
+3. `web: add expanded second editor toolbar row`
+4. `web: force Numpad digit entry when NumLock is off`
+5. `web: add bilingual PT-PT and EN autocorrect engine`
+6. `web: add 1-page bottom-up service sheet Word copy and A4 print tool`
+7. `ci: add automated upstream sync and conflict alert workflow`
 
-Instância self-hosted em `nooklab.duckdns.org` (Caddy + sync server, identity, sse, monograph, s3, mongo). `anotas.duckdns.org` aponta para o mesmo servidor e mantém-se como alias.
+## Automated Upstream Sync, VPS Deploy & Conflict Alerts
 
-URLs derivadas do Caddyfile — **confirma em `Settings → Servers` na app que funciona** antes de as usar:
+`.github/workflows/nooklab-upstream-sync.yml` runs daily at `05:00 UTC`, on code pushes to `nooklab`, and manually via `workflow_dispatch`:
 
-| Serviço | URL |
-|---|---|
-| Sync | `https://nooklab.duckdns.org/api` |
-| Identity / Auth | `https://nooklab.duckdns.org/account` |
-| SSE (eventos) | `https://nooklab.duckdns.org/sse` |
-| Monograph | `https://nooklab.duckdns.org/mono` |
-| Attachments | `https://nooklab.duckdns.org/attachments` |
+- Fetches `https://github.com/streetwriters/notesnook.git` (`master`).
+- On scheduled/manual runs when new upstream commits exist, rebases `nooklab` onto `upstream/master`.
+- Runs the NookLab Vitest suite (`cd apps/web && npx vitest run nooklab-`) and `npm run build:web`.
+- Exports numbered `.patch` files (`git format-patch`) as a workflow artifact (`nooklab-patches`).
+- Only if rebase, tests, and build all succeed, force-pushes `nooklab` (`--force-with-lease`), fast-forwards `master`, automatically deploys `apps/web/build` to the VPS (`https://nooklab.duckdns.org` via `DEPLOY_HOST`/`DEPLOY_USER`/`DEPLOY_SSH_KEY` secrets), and closes any resolved `upstream-conflict` issue.
+- If a rebase conflict, post-rebase test/build failure, push rejection, or VPS deploy error occurs, aborts any dirty rebase cleanly and opens (or updates) an `upstream-conflict` GitHub Issue with full details.
 
-O servidor guarda apenas blocos encriptados. A chave fica no aparelho, associada à conta — portanto é a conta que garante o acesso às mesmas notas, não o nome da app.
-
-## Identidade
-
-| Plataforma | Nome | ID |
-|---|---|---|
-| Web | NookLab | (manifest PWA) |
-| Desktop | NookLab | `org.basthy28.nooklab` |
-| Android | NookLab | `com.basthy28.nooklab` |
-
-ID diferente do da app oficial (`com.streetwriters.notesnook` / `org.streetwriters.notesnook`) para as duas poderem coexistir sem sobrepor dados locais.
-
-## Atualizações
-
-O `master` do upstream é `streetwriters/notesnook` (remote `upstream`). As alterações do NookLab vivem no branch `nooklab`.
+## Local Helper (`scripts/nooklab-sync.sh`)
 
 ```bash
-bash scripts/nooklab-sync.sh
+# Check how many commits upstream is ahead and list all NookLab patches
+bash scripts/nooklab-sync.sh status
+
+# Export numbered .patch files into ./patches/ (gitignored)
+bash scripts/nooklab-sync.sh patches
+
+# Rebase nooklab onto upstream/master locally (creates a timestamped backup branch first)
+bash scripts/nooklab-sync.sh sync
+
+# Run NookLab tests + web build
+bash scripts/nooklab-sync.sh verify
 ```
-
-O script faz `fetch upstream master` + `rebase` do branch `nooklab` por cima. Se uma alteração nossa tocar no mesmo ficheiro que o upstream, o rebase pára com conflito — é o sinal para ajustar. Regras para minimizar conflitos: criar ficheiros novos em vez de editar os do upstream, e manter as mudanças isoladas.
-
-## Licença
-
-GPL-3.0-or-later, igual ao upstream. É um fork — não é um produto oficial da Streetwriters e não usa a marca deles com esse sentido.

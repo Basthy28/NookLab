@@ -1,0 +1,421 @@
+name: NookLab Upstream Sync
+
+on:
+  schedule:
+    - cron: "0 5 * * *"
+  push:
+    branches:
+      - "nooklab"
+    paths:
+      - "apps/web/**"
+      - "packages/**"
+      - ".github/workflows/nooklab-upstream-sync.yml"
+  workflow_dispatch:
+    inputs:
+      force_check:
+        description: "Run NookLab tests, build, and deploy even if upstream has no new commits"
+        required: false
+        type: boolean
+        default: false
+
+concurrency:
+  group: nooklab-upstream-sync
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+  issues: write
+
+jobs:
+  sync:
+    name: Rebase & Verify NookLab
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Checkout nooklab
+        uses: actions/checkout@v5
+        with:
+          ref: nooklab
+          fetch-depth: 0
+          token: ${{ secrets.NOOKLAB_SYNC_TOKEN || secrets.GITHUB_TOKEN }}
+
+      - name: Fetch upstream and check divergence
+        id: check
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "nooklab-sync[bot]"
+          git config user.email "nooklab-sync[bot]@users.noreply.github.com"
+
+          git fetch --no-tags https://github.com/streetwriters/notesnook.git master:refs/remotes/upstream/master
+
+          old_nooklab_sha="$(git rev-parse HEAD)"
+          upstream_sha="$(git rev-parse refs/remotes/upstream/master)"
+          upstream_subject="$(git log -1 --format='%s' "${upstream_sha}")"
+          base_sha="$(git merge-base HEAD refs/remotes/upstream/master)"
+          behind_count="$(git rev-list --count "${base_sha}..${upstream_sha}")"
+          ahead_count="$(git rev-list --count "${base_sha}..HEAD")"
+
+          echo "old_nooklab_sha=${old_nooklab_sha}" >> "$GITHUB_OUTPUT"
+          echo "upstream_sha=${upstream_sha}" >> "$GITHUB_OUTPUT"
+          echo "behind_count=${behind_count}" >> "$GITHUB_OUTPUT"
+          echo "ahead_count=${ahead_count}" >> "$GITHUB_OUTPUT"
+
+          if [ "${GITHUB_EVENT_NAME}" != "push" ] && [ "${behind_count}" -gt 0 ]; then
+            echo "needs_sync=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "needs_sync=false" >> "$GITHUB_OUTPUT"
+          fi
+
+          node -e '
+            const fs = require("fs");
+            fs.writeFileSync("/tmp/nooklab-sync-meta.json", JSON.stringify({
+              oldNooklabSha: process.argv[1],
+              upstreamSha: process.argv[2],
+              upstreamSubject: process.argv[3],
+              behindCount: Number(process.argv[4]),
+              aheadCount: Number(process.argv[5])
+            }, null, 2));
+          ' "${old_nooklab_sha}" "${upstream_sha}" "${upstream_subject}" "${behind_count}" "${ahead_count}"
+
+          echo "Upstream streetwriters/notesnook@master is at ${upstream_sha} (${upstream_subject})"
+          echo "NookLab is ${behind_count} commit(s) behind and ${ahead_count} patch(es) ahead."
+
+      - name: Rebase nooklab onto upstream/master
+        id: rebase
+        if: steps.check.outputs.needs_sync == 'true'
+        shell: bash
+        run: |
+          set +e
+          git rebase refs/remotes/upstream/master
+          rc=$?
+          set -e
+
+          if [ "${rc}" -eq 0 ]; then
+            echo "rebase_status=clean" >> "$GITHUB_OUTPUT"
+            echo "new_nooklab_sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          stopped_sha=""
+          stopped_subject="unknown"
+          if [ -f .git/rebase-merge/stopped-sha ]; then
+            stopped_sha="$(cat .git/rebase-merge/stopped-sha)"
+            stopped_subject="$(git log -1 --format='%h %s' "${stopped_sha}" 2>/dev/null || echo "${stopped_sha}")"
+          fi
+          conflicted_files="$(git diff --name-only --diff-filter=U || true)"
+          git rebase --abort || true
+
+          node -e '
+            const fs = require("fs");
+            fs.writeFileSync("/tmp/nooklab-conflict-report.json", JSON.stringify({
+              kind: "rebase_conflict",
+              stoppedPatch: process.argv[1],
+              conflictedFiles: process.argv[2].split(/\r?\n/).filter(Boolean)
+            }, null, 2));
+          ' "${stopped_subject}" "${conflicted_files}"
+
+          echo "rebase_status=conflict" >> "$GITHUB_OUTPUT"
+          echo "Rebase conflicted at patch: ${stopped_subject}"
+
+      - name: Setup Node with cache
+        if: (steps.check.outputs.needs_sync == 'true' && steps.rebase.outputs.rebase_status == 'clean') || github.event_name == 'push' || inputs.force_check == true
+        uses: ./.github/actions/setup-node-with-cache
+
+      - name: Install, test, and build NookLab Web
+        id: verify
+        if: (steps.check.outputs.needs_sync == 'true' && steps.rebase.outputs.rebase_status == 'clean') || github.event_name == 'push' || inputs.force_check == true
+        shell: bash
+        run: |
+          set +e
+          log_file="/tmp/nooklab-verify.log"
+          (
+            set -euo pipefail
+            echo "=== npm ci ==="
+            npm ci --ignore-scripts --prefer-offline --no-audit
+            echo "=== bootstrap web ==="
+            npm run bootstrap -- --scope=web
+            echo "=== vitest nooklab suite ==="
+            (cd apps/web && npx vitest run nooklab-)
+            echo "=== build web ==="
+            npm run build:web
+          ) 2>&1 | tee "${log_file}"
+          rc="${PIPESTATUS[0]}"
+          set -e
+
+          if [ "${rc}" -eq 0 ]; then
+            echo "status=passed" >> "$GITHUB_OUTPUT"
+          else
+            echo "status=failed" >> "$GITHUB_OUTPUT"
+            tail -n 80 "${log_file}" > /tmp/nooklab-verify-tail.txt
+            node -e '
+              const fs = require("fs");
+              const tail = fs.readFileSync("/tmp/nooklab-verify-tail.txt", "utf8");
+              fs.writeFileSync("/tmp/nooklab-conflict-report.json", JSON.stringify({
+                kind: "verify_failure",
+                tail
+              }, null, 2));
+            '
+          fi
+
+      - name: Export clean NookLab patches
+        if: (steps.check.outputs.needs_sync == 'true' && steps.rebase.outputs.rebase_status == 'clean') || github.event_name == 'push' || inputs.force_check == true
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p /tmp/nooklab-patches
+          git format-patch --zero-commit refs/remotes/upstream/master..HEAD -o /tmp/nooklab-patches
+          ls -la /tmp/nooklab-patches
+
+      - name: Upload NookLab patch artifact
+        if: (steps.check.outputs.needs_sync == 'true' && steps.rebase.outputs.rebase_status == 'clean') || github.event_name == 'push' || inputs.force_check == true
+        uses: actions/upload-artifact@v4
+        with:
+          name: nooklab-patches
+          path: /tmp/nooklab-patches/*.patch
+          retention-days: 14
+
+      - name: Push rebased nooklab and upstream mirror branch
+        id: push
+        if: steps.check.outputs.needs_sync == 'true' && steps.rebase.outputs.rebase_status == 'clean' && steps.verify.outputs.status == 'passed'
+        shell: bash
+        run: |
+          set +e
+          log_file="/tmp/nooklab-push.log"
+          (
+            set -euo pipefail
+            git push origin "HEAD:refs/heads/nooklab" --force-with-lease="refs/heads/nooklab:${{ steps.check.outputs.old_nooklab_sha }}"
+            git push origin "refs/remotes/upstream/master:refs/heads/master" || true
+          ) 2>&1 | tee "${log_file}"
+          rc="${PIPESTATUS[0]}"
+          set -e
+
+          if [ "${rc}" -eq 0 ]; then
+            echo "status=passed" >> "$GITHUB_OUTPUT"
+          else
+            echo "status=failed" >> "$GITHUB_OUTPUT"
+            tail -n 40 "${log_file}" > /tmp/nooklab-verify-tail.txt
+            node -e '
+              const fs = require("fs");
+              const tail = fs.readFileSync("/tmp/nooklab-verify-tail.txt", "utf8");
+              fs.writeFileSync("/tmp/nooklab-conflict-report.json", JSON.stringify({
+                kind: "push_failure",
+                tail
+              }, null, 2));
+            '
+          fi
+
+      - name: Deploy NookLab Web to VPS
+        id: deploy
+        if: steps.verify.outputs.status == 'passed' && (steps.check.outputs.needs_sync == 'false' || steps.push.outputs.status == 'passed')
+        env:
+          DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+          DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
+          DEPLOY_SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+        shell: bash
+        run: |
+          if [ -z "${DEPLOY_HOST}" ] || [ -z "${DEPLOY_USER}" ] || [ -z "${DEPLOY_SSH_KEY}" ]; then
+            echo "Deploy secrets not configured; skipping VPS deploy."
+            echo "status=skipped" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          set +e
+          log_file="/tmp/nooklab-deploy.log"
+          (
+            set -euo pipefail
+            umask 077
+            key_file="/tmp/nooklab_deploy_key"
+            tar_file="/tmp/nooklab-build.tar.gz"
+            trap 'rm -f "${key_file}" "${tar_file}"' EXIT
+
+            printf '%s\n' "${DEPLOY_SSH_KEY}" | tr -d '\r' > "${key_file}"
+            chmod 600 "${key_file}"
+            tar -czf "${tar_file}" -C apps/web/build .
+
+            scp -i "${key_file}" -o BatchMode=yes -o StrictHostKeyChecking=accept-new "${tar_file}" "${DEPLOY_USER}@${DEPLOY_HOST}:/tmp/nooklab-build.tar.gz"
+            ssh -i "${key_file}" -o BatchMode=yes -o StrictHostKeyChecking=accept-new "${DEPLOY_USER}@${DEPLOY_HOST}" \
+              "set -e; sudo rm -rf /var/www/nooklab.new /var/www/nooklab.prev; sudo mkdir -p /var/www/nooklab.new; sudo tar -xzf /tmp/nooklab-build.tar.gz -C /var/www/nooklab.new; sudo chown -R root:root /var/www/nooklab.new; sudo chmod -R a+rX,go-w /var/www/nooklab.new; sudo mv /var/www/nooklab /var/www/nooklab.prev; sudo mv /var/www/nooklab.new /var/www/nooklab; sudo rm -rf /var/www/nooklab.prev /tmp/nooklab-build.tar.gz; ls -lh /var/www/nooklab/index.html /var/www/nooklab/manifest.webmanifest"
+            curl -fsSI https://nooklab.duckdns.org/ | head -n 8
+          ) 2>&1 | tee "${log_file}"
+          rc="${PIPESTATUS[0]}"
+          set -e
+
+          if [ "${rc}" -eq 0 ]; then
+            echo "status=passed" >> "$GITHUB_OUTPUT"
+          else
+            echo "status=failed" >> "$GITHUB_OUTPUT"
+            tail -n 40 "${log_file}" > /tmp/nooklab-verify-tail.txt
+            node -e '
+              const fs = require("fs");
+              const tail = fs.readFileSync("/tmp/nooklab-verify-tail.txt", "utf8");
+              fs.writeFileSync("/tmp/nooklab-conflict-report.json", JSON.stringify({
+                kind: "deploy_failure",
+                tail
+              }, null, 2));
+            '
+          fi
+
+      - name: Open or update issue alert on conflict or failure
+        if: steps.rebase.outputs.rebase_status == 'conflict' || steps.verify.outputs.status == 'failed' || steps.push.outputs.status == 'failed' || steps.deploy.outputs.status == 'failed'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require("fs");
+            const meta = JSON.parse(fs.readFileSync("/tmp/nooklab-sync-meta.json", "utf8"));
+            const report = JSON.parse(fs.readFileSync("/tmp/nooklab-conflict-report.json", "utf8"));
+            const labelName = "upstream-conflict";
+            const runUrl = `${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`;
+            const upstreamUrl = `https://github.com/streetwriters/notesnook/commit/${meta.upstreamSha}`;
+
+            try {
+              await github.rest.issues.createLabel({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                name: labelName,
+                color: "dc2626",
+                description: "Automatic NookLab upstream rebase or build verification issue"
+              });
+            } catch (err) {
+              if (err.status !== 422) throw err;
+            }
+
+            const shortSha = meta.upstreamSha.slice(0, 9);
+            const heading =
+              report.kind === "rebase_conflict"
+                ? `Upstream rebase conflict at ${shortSha}`
+                : report.kind === "push_failure"
+                  ? `Upstream push blocked (workflow scope?) at ${shortSha}`
+                  : report.kind === "deploy_failure"
+                    ? `VPS web deployment failed at ${shortSha}`
+                    : `Post-rebase NookLab build/test failure at ${shortSha}`;
+
+            let detailsBlock = "";
+            if (report.kind === "rebase_conflict") {
+              const filesList = (report.conflictedFiles || []).map((f) => `- \`${f}\``).join("\n") || "- (see workflow log)";
+              detailsBlock = [
+                `**Failed patch:** \`${report.stoppedPatch}\``,
+                "",
+                "**Conflicting files:**",
+                filesList
+              ].join("\n");
+            } else if (report.kind === "push_failure") {
+              detailsBlock = [
+                "Rebase and verification succeeded, but pushing `nooklab` failed (often because upstream modified `.github/workflows/*` and `GITHUB_TOKEN` lacks `workflow` scope unless `NOOKLAB_SYNC_TOKEN` secret is set).",
+                "",
+                "```text",
+                report.tail || "",
+                "```"
+              ].join("\n");
+            } else if (report.kind === "deploy_failure") {
+              detailsBlock = [
+                "Build and verification passed, but deploying `apps/web/build` to the VPS failed.",
+                "",
+                "```text",
+                report.tail || "",
+                "```"
+              ].join("\n");
+            } else {
+              detailsBlock = [
+                "Git rebase merged cleanly onto upstream, but NookLab tests or `npm run build:web` failed.",
+                "",
+                "<details><summary>Last 80 lines of verification output</summary>",
+                "",
+                "```text",
+                report.tail || "",
+                "```",
+                "</details>"
+              ].join("\n");
+            }
+
+            const body = [
+              `### ${heading}`,
+              "",
+              `- **Upstream target:** [\`${shortSha}\`](${upstreamUrl}) (${meta.upstreamSubject})`,
+              `- **Upstream commits waiting:** ${meta.behindCount}`,
+              `- **Workflow run:** ${runUrl}`,
+              "",
+              detailsBlock,
+              "",
+              "**How to resolve locally:**",
+              "```bash",
+              "git checkout nooklab",
+              "bash scripts/nooklab-sync.sh sync",
+              "# Resolve conflicts, run: git add <files> && git rebase --continue",
+              "bash scripts/nooklab-sync.sh verify",
+              "git push origin nooklab --force-with-lease",
+              "```"
+            ].join("\n");
+
+            const { data: openIssues } = await github.rest.issues.listForRepo({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              state: "open",
+              labels: labelName,
+              per_page: 10
+            });
+
+            if (openIssues.length === 0) {
+              await github.rest.issues.create({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                title: `[NookLab Sync] ${heading}`,
+                body,
+                labels: [labelName]
+              });
+            } else {
+              const issue = openIssues[0];
+              const { data: comments } = await github.rest.issues.listComments({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: issue.number,
+                per_page: 30
+              });
+              const alreadyLoggedSha =
+                (issue.body && issue.body.includes(shortSha)) ||
+                comments.some((c) => c.body && c.body.includes(shortSha));
+              if (!alreadyLoggedSha) {
+                await github.rest.issues.createComment({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  issue_number: issue.number,
+                  body
+                });
+              }
+            }
+
+      - name: Close stale conflict issues after clean sync
+        if: steps.verify.outputs.status == 'passed' && (steps.check.outputs.needs_sync == 'false' || steps.push.outputs.status == 'passed') && (steps.deploy.outputs.status == 'passed' || steps.deploy.outputs.status == 'skipped')
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require("fs");
+            const meta = JSON.parse(fs.readFileSync("/tmp/nooklab-sync-meta.json", "utf8"));
+            const { data: openIssues } = await github.rest.issues.listForRepo({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              state: "open",
+              labels: "upstream-conflict",
+              per_page: 10
+            });
+            for (const issue of openIssues) {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: issue.number,
+                body: `Resolved cleanly against upstream \`${meta.upstreamSha.slice(0, 9)}\`: rebase, NookLab Vitest checks, \`npm run build:web\`, and VPS deploy all succeeded.`
+              });
+              await github.rest.issues.update({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: issue.number,
+                state: "closed"
+              });
+            }
+
+      - name: Fail job if conflict or verification failure occurred
+        if: steps.rebase.outputs.rebase_status == 'conflict' || steps.verify.outputs.status == 'failed' || steps.push.outputs.status == 'failed' || steps.deploy.outputs.status == 'failed'
+        shell: bash
+        run: |
+          echo "Upstream sync failed — check the opened 'upstream-conflict' GitHub Issue for details."
+          exit 1
