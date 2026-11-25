@@ -15,6 +15,10 @@ NookLab is maintained as a clean, atomic patch stack on branch `nooklab`, rebase
 9. `mobile: add ColorNote-style 2-column grid view`
 10. `editor: add mobile NookLab toolbar row, autocorrect, and Service Sheet copy`
 11. `ci: add signed NookLab Android APK release workflow`
+12. `editor: fix mobile toolbar dark theme colors and red palette default`
+13. `common: resolve note colors for search results on web and mobile`
+14. `mobile: open note photos on single tap with swipeable zoom gallery`
+15. `docs: document dark toolbar, search color, and photo gallery patches`
 
 ## Automated Upstream Sync, VPS Deploy & Conflict Alerts
 
