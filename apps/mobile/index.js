@@ -27,6 +27,7 @@ import { enableFreeze } from "react-native-screens";
 import { BackgroundSync } from "./app/services/background-sync";
 import Notifications from "./app/services/notifications";
 import appJson from "./app.json";
+import { NOOKLAB_REACHABILITY_URL } from "./app/common/nooklab-config";
 
 // This bundle is shared between the app and the iOS share extension (the
 // extension loads the app's main.jsbundle instead of building its own, which
@@ -54,7 +55,7 @@ if (!IS_SHARE_EXTENSION) {
 
 enableFreeze(true);
 NetInfo.configure({
-  reachabilityUrl: "https://api.notesnook.com/health",
+  reachabilityUrl: NOOKLAB_REACHABILITY_URL,
   reachabilityTest: (response) => {
     if (!response) return false;
     console.log("reachabilty test", response.status);

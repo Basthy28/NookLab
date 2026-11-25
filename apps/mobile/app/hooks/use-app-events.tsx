@@ -171,20 +171,24 @@ const onAppOpenedFromURL = async (event: {
   const url = event.url;
 
   const parsedLink = isInternalLink(url) ? parseInternalLink(url) : undefined;
+  const normalizedUrl = url.replace(
+    "https://nooklab.duckdns.org/",
+    "https://app.notesnook.com/"
+  );
 
   try {
-    if (url.startsWith("https://app.notesnook.com/account/verified")) {
+    if (normalizedUrl.startsWith("https://app.notesnook.com/account/verified")) {
       await onUserEmailVerified();
-    } else if (url.startsWith("ShareMedia://QuickNoteWidget")) {
+    } else if (normalizedUrl.startsWith("ShareMedia://QuickNoteWidget")) {
       editorState().movedAway = false;
       eSendEvent(eOnLoadNote, { newNote: true });
       fluidTabsRef.current?.goToPage("editor", false);
       return;
     } else if (
       parsedLink?.type === "note" ||
-      url.startsWith("https://app.notesnook.com/open_note?")
+      normalizedUrl.startsWith("https://app.notesnook.com/open_note?")
     ) {
-      const id = parsedLink?.id || new URL(url).searchParams.get("id");
+      const id = parsedLink?.id || new URL(normalizedUrl).searchParams.get("id");
 
       if (id) {
         const note = await db.notes.note(id);
@@ -199,10 +203,10 @@ const onAppOpenedFromURL = async (event: {
       }
     } else if (
       (parsedLink?.type === "notebook" ||
-        url.startsWith("https://app.notesnook.com/open_notebook?")) &&
+        normalizedUrl.startsWith("https://app.notesnook.com/open_notebook?")) &&
       !event.isInitialUrl
     ) {
-      const id = parsedLink?.id || new URL(url).searchParams.get("id");
+      const id = parsedLink?.id || new URL(normalizedUrl).searchParams.get("id");
       if (id) {
         const notebook = await db.notebooks.notebook(id);
         if (notebook) {
@@ -216,10 +220,10 @@ const onAppOpenedFromURL = async (event: {
       }
     } else if (
       (parsedLink?.type === "tag" ||
-        url.startsWith("https://app.notesnook.com/open_tag?")) &&
+        normalizedUrl.startsWith("https://app.notesnook.com/open_tag?")) &&
       !event.isInitialUrl
     ) {
-      const id = parsedLink?.id || new URL(url).searchParams.get("id");
+      const id = parsedLink?.id || new URL(normalizedUrl).searchParams.get("id");
       if (id) {
         const tag = await db.tags.tag(id);
         if (tag) {
@@ -234,10 +238,10 @@ const onAppOpenedFromURL = async (event: {
       }
     } else if (
       (parsedLink?.type === "color" ||
-        url.startsWith("https://app.notesnook.com/open_color?")) &&
+        normalizedUrl.startsWith("https://app.notesnook.com/open_color?")) &&
       !event.isInitialUrl
     ) {
-      const id = parsedLink?.id || new URL(url).searchParams.get("id");
+      const id = parsedLink?.id || new URL(normalizedUrl).searchParams.get("id");
       if (id) {
         const color = await db.colors.color(id);
         if (color) {
@@ -250,13 +254,13 @@ const onAppOpenedFromURL = async (event: {
           });
         }
       }
-    } else if (url.startsWith("https://app.notesnook.com/open_reminder")) {
-      const id = new URL(url).searchParams.get("id");
+    } else if (normalizedUrl.startsWith("https://app.notesnook.com/open_reminder")) {
+      const id = new URL(normalizedUrl).searchParams.get("id");
       if (id) {
         const reminder = await db.reminders.reminder(id);
         if (reminder) AddReminder.present(reminder);
       }
-    } else if (url.startsWith("https://app.notesnook.com/new_reminder")) {
+    } else if (normalizedUrl.startsWith("https://app.notesnook.com/new_reminder")) {
       const reminderFeature = await isFeatureAvailable("activeReminders");
       if (!reminderFeature.isAllowed) {
         ToastManager.show({

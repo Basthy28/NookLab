@@ -23,9 +23,11 @@ import { Sound } from "react-native-notification-sounds";
 import { initialWindowMetrics } from "react-native-safe-area-context";
 import { FileType } from "react-native-scoped-storage";
 import { create } from "zustand";
-import { ThemeDark, ThemeLight, ThemeDefinition } from "@notesnook/theme";
+import { ThemeDefinition } from "@notesnook/theme";
 import { DayFormat, WeekFormat, Reminder } from "@notesnook/core";
 import { db } from "../common/database";
+import { NOOKLAB_DEFAULT_SERVER_URLS } from "../common/nooklab-config";
+import { NookLabDarkTheme, NookLabLightTheme } from "../common/nooklab-theme";
 import { EDITOR_LINE_HEIGHT } from "../utils/constants";
 import { ShortcutItem } from "react-native-actions-shortcuts";
 export const HostIds = [
@@ -58,7 +60,7 @@ export type Settings = {
   appLockEnabled?: boolean;
   appLockMode?: "none" | "background" | "launch";
   notebooksListMode?: "normal" | "compact";
-  notesListMode?: "normal" | "compact";
+  notesListMode?: "normal" | "compact" | "grid";
   searchListMode?: "normal" | "compact";
   devMode?: boolean;
   notifNotes?: boolean;
@@ -180,7 +182,7 @@ export const defaultSettings: SettingStore["settings"] = {
   privacyScreen: false,
   appLockMode: "none",
   notebooksListMode: "normal",
-  notesListMode: "normal",
+  notesListMode: "grid",
   searchListMode: "normal",
   devMode: false,
   notifNotes: false,
@@ -205,8 +207,8 @@ export const defaultSettings: SettingStore["settings"] = {
   defaultFontFamily: "sans-serif",
   defaultFontSize: 16,
   colorScheme: "light",
-  lighTheme: ThemeLight,
-  darkTheme: ThemeDark,
+  lighTheme: NookLabLightTheme,
+  darkTheme: NookLabDarkTheme,
   markdownShortcuts: false,
   biometricsAuthEnabled: false,
   appLockHasPasswordSecurity: false,
@@ -215,6 +217,7 @@ export const defaultSettings: SettingStore["settings"] = {
   backupType: "partial",
   fullBackupReminder: "never",
   lastFullBackupDate: 0,
+  serverUrls: { ...NOOKLAB_DEFAULT_SERVER_URLS },
   checkForUpdates: true,
   defaultLineHeight: EDITOR_LINE_HEIGHT.DEFAULT,
   imageCompression: "ask-every-time",

@@ -19,6 +19,8 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 import { Platform } from "react-native";
 import { MMKV } from "../common/database/mmkv";
+import { NOOKLAB_DEFAULT_SERVER_URLS } from "../common/nooklab-config";
+import { NookLabDarkTheme, NookLabLightTheme } from "../common/nooklab-theme";
 import {
   SettingStore,
   defaultSettings,
@@ -125,6 +127,15 @@ function init() {
       ...settings,
       ...settingsParsed
     };
+    if (!settings.serverUrls) {
+      settings.serverUrls = { ...NOOKLAB_DEFAULT_SERVER_URLS };
+    }
+    if (!settings.lighTheme || settings.lighTheme.id === "default-light") {
+      settings.lighTheme = NookLabLightTheme;
+    }
+    if (!settings.darkTheme || settings.darkTheme.id === "default-dark") {
+      settings.darkTheme = NookLabDarkTheme;
+    }
   }
   if (settings.fontScale) {
     scale.fontScale = settings.fontScale;

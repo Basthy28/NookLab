@@ -136,7 +136,7 @@ export const withTheme = (
     useEffect(() => {
       setTimeout(() => {
         const currentTheme = colorScheme === "dark" ? darkTheme : lightTheme;
-        if (!currentTheme) return;
+        if (!currentTheme || currentTheme.id?.startsWith("nooklab-")) return;
         themeTrpcClient.updateTheme
           .query({
             version: currentTheme.version,

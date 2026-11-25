@@ -31,6 +31,7 @@ import { ToastManager } from "../../services/event-manager";
 import SettingsService from "../../services/settings";
 import { HostId, HostIds } from "../../stores/use-setting-store";
 import { useUserStore } from "../../stores/use-user-store";
+import { NOOKLAB_DEFAULT_SERVER_URLS } from "../../common/nooklab-config";
 import { DefaultAppStyles } from "../../utils/styles";
 
 export const ServerIds = [
@@ -92,7 +93,9 @@ export function ServersConfiguration() {
   const [error, setError] = useState<string>();
   const [success, setSuccess] = useState<boolean>();
   const [urls, setUrls] = useState<Partial<Record<HostId, string>>>(
-    SettingsService.getProperty("serverUrls") || {}
+    SettingsService.getProperty("serverUrls") || {
+      ...NOOKLAB_DEFAULT_SERVER_URLS
+    }
   );
   const isLoggedIn = useUserStore((state) => !!state.user);
 
@@ -223,7 +226,9 @@ export function ServersConfiguration() {
             title={strings.resetServerUrls()}
             onPress={async () => {
               if (isLoggedIn) return;
-              SettingsService.setProperty("serverUrls", undefined);
+              SettingsService.setProperty("serverUrls", {
+                ...NOOKLAB_DEFAULT_SERVER_URLS
+              });
               presentDialog({
                 title: strings.serverUrlsReset(),
                 paragraph: strings.restartAppToTakeEffect(),

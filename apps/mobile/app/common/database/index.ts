@@ -34,6 +34,7 @@ import "./logger";
 import { RNSqliteDriver } from "./sqlite.kysely";
 import { Storage } from "./storage";
 import SettingsService from "../../services/settings";
+import { NOOKLAB_NOTESNOOK_HOSTS } from "../nooklab-config";
 
 export async function setupDatabase(password?: string) {
   const key = await getDatabaseKey(password);
@@ -52,13 +53,7 @@ export async function setupDatabase(password?: string) {
   // });
 
   database.host({
-    API_HOST: "https://api.notesnook.com",
-    AUTH_HOST: "https://auth.streetwriters.co",
-    SSE_HOST: "https://events.streetwriters.co",
-    SUBSCRIPTIONS_HOST: "https://subscriptions.streetwriters.co",
-    ISSUES_HOST: "https://issues.streetwriters.co",
-    MONOGRAPH_HOST: "https://monogr.ph",
-    NOTESNOOK_HOST: "https://notesnook.com",
+    ...NOOKLAB_NOTESNOOK_HOSTS,
     ...(SettingsService.getProperty("serverUrls") || {})
   });
 

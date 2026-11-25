@@ -24,6 +24,7 @@ import {
   Reminder
 } from "@notesnook/core";
 import { strings } from "@notesnook/intl";
+import appJson from "../../app.json";
 import notifee, {
   AndroidStyle,
   AuthorizationStatus,
@@ -434,7 +435,7 @@ async function scheduleNotification(
             smallIcon: "ic_stat_name",
             pressAction: {
               id: "default",
-              mainComponent: "notesnook"
+              mainComponent: appJson.name
             },
             badgeCount: 1,
             actions: androidActions,
@@ -571,7 +572,7 @@ async function displayNotification({
         autoCancel: false,
         pressAction: {
           id: "default",
-          mainComponent: "notesnook"
+          mainComponent: appJson.name
         },
         actions: actions?.map((action) => ({
           pressAction: {

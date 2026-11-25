@@ -133,7 +133,7 @@ android {
         sourceCompatibility JavaVersion.VERSION_1_8
         targetCompatibility JavaVersion.VERSION_1_8
     }
-    namespace "com.basthy28.nooklab"
+    namespace "com.streetwriters.notesnook"
     defaultConfig {
         applicationId "com.basthy28.nooklab"
         minSdkVersion rootProject.ext.minSdkVersion
@@ -154,7 +154,7 @@ android {
         abi {
             reset()
             enable enableSeparateBuildPerCPUArchitecture
-            universalApk false  // If true, also generate a universal APK
+            universalApk project.hasProperty("universalApk") && project.universalApk == "true"
             include (*reactNativeArchitectures())
         }
     }
@@ -165,11 +165,19 @@ android {
             keyAlias 'androiddebugkey'
             keyPassword 'android'
         }
-          release {
-            storeFile file('debug.keystore')
-            storePassword 'android'
-            keyAlias 'androiddebugkey'
-            keyPassword 'android'
+        release {
+            def keystorePath = System.getenv("NOOKLAB_KEYSTORE_FILE")
+            if (keystorePath != null && !keystorePath.isEmpty()) {
+                storeFile file(keystorePath)
+                storePassword System.getenv("NOOKLAB_KEYSTORE_PASSWORD")
+                keyAlias System.getenv("NOOKLAB_KEY_ALIAS")
+                keyPassword System.getenv("NOOKLAB_KEY_PASSWORD")
+            } else {
+                storeFile file('debug.keystore')
+                storePassword 'android'
+                keyAlias 'androiddebugkey'
+                keyPassword 'android'
+            }
         }
     }
     buildTypes {
@@ -178,7 +186,8 @@ android {
             buildConfigField "boolean", "FDROID_BUILD", "${fdroidBuild()}"
         }
         release {
-            if (file("debug.keystore").exists()) {
+            def hasNookLabKeystore = System.getenv("NOOKLAB_KEYSTORE_FILE") != null && !System.getenv("NOOKLAB_KEYSTORE_FILE").isEmpty()
+            if (hasNookLabKeystore || file("debug.keystore").exists()) {
                 signingConfig signingConfigs.release
             }
             minifyEnabled enableProguardInReleaseBuilds
