@@ -2,7 +2,7 @@
  * NookLab — batched SQLite preview loader for mobile grid note cards.
  * Fetches only visible notes' content from local SQLite with a bounded LRU cache.
  */
-import type { Note } from "@notesnook/core";
+import type { HighlightedResult, Note } from "@notesnook/core";
 import { useEffect, useState } from "react";
 import { db } from "../../common/database";
 import { extractNotePreviewLines } from "./grid-helpers";
@@ -71,21 +71,25 @@ async function flushQueue() {
   }
 }
 
-export function useNotePreview(item: Note, locked?: boolean): string {
-  const fallback = extractNotePreviewLines(
-    undefined,
-    item.title,
-    item.headline || ""
-  );
-  const cacheKey = `${item.id}:${item.dateModified}:${item.contentId || ""}`;
+export function useNotePreview(
+  item: Note | HighlightedResult,
+  locked?: boolean
+): string {
+  const isSearchResult = item.type === "searchResult";
+  const fallback = isSearchResult
+    ? ""
+    : extractNotePreviewLines(undefined, item.title, item.headline || "");
+  const cacheKey = isSearchResult
+    ? `sr:${item.id}`
+    : `${item.id}:${item.dateModified}:${item.contentId || ""}`;
 
   const [preview, setPreview] = useState<string>(() => {
-    if (locked) return "";
+    if (locked || isSearchResult) return "";
     return previewCache.get(cacheKey) ?? fallback;
   });
 
   useEffect(() => {
-    if (locked) {
+    if (locked || isSearchResult) {
       setPreview("");
       return;
     }
@@ -105,7 +109,7 @@ export function useNotePreview(item: Note, locked?: boolean): string {
     }
     keyListeners.add(setPreview);
 
-    if (!pendingQueue.has(cacheKey)) {
+    if (!pendingQueue.has(cacheKey) && item.type === "note") {
       pendingQueue.set(cacheKey, {
         cacheKey,
         noteId: item.id,
@@ -126,7 +130,7 @@ export function useNotePreview(item: Note, locked?: boolean): string {
       subs?.delete(setPreview);
       if (subs && subs.size === 0) listeners.delete(cacheKey);
     };
-  }, [cacheKey, fallback, item.contentId, item.headline, item.id, item.title, item.type, locked]);
+  }, [cacheKey, fallback, isSearchResult, item, locked]);
 
   return preview;
 }

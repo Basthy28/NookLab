@@ -17,7 +17,7 @@ You should have received a copy of the GNU General Public License
 along with this program.  If not, see <http://www.gnu.org/licenses/>.
 */
 import React from "react";
-import { HighlightedResult } from "@notesnook/core";
+import { Color, HighlightedResult } from "@notesnook/core";
 import { View } from "react-native";
 import { Pressable } from "../../ui/pressable";
 import Paragraph from "../../ui/typography/paragraph";
@@ -32,16 +32,26 @@ import { eOnLoadNote } from "../../../utils/events";
 import { IconButton } from "../../ui/icon-button";
 import { fluidTabsRef } from "../../../utils/global-refs";
 import { useSettingStore } from "../../../stores/use-setting-store";
+import { mixHexColor, withHexAlpha } from "../../nooklab-grid/grid-helpers";
+
 type SearchResultProps = {
   item: HighlightedResult;
+  color?: Color;
 };
 
 export const SearchResult = (props: SearchResultProps) => {
   const [expanded, setExpanded] = React.useState(true);
-  const { colors } = useThemeColors();
+  const { colors, isDark } = useThemeColors();
   const compactMode = useSettingStore(
     (state) => state.settings.searchListMode === "compact"
   );
+  const colorHex = props.color?.colorCode;
+  const coloredBg = colorHex
+    ? mixHexColor(colorHex, isDark ? "#1b1b1b" : "#ffffff", isDark ? 0.2 : 0.24)
+    : undefined;
+  const coloredBorder = colorHex
+    ? withHexAlpha(colorHex, isDark ? 0.5 : 0.58)
+    : undefined;
 
   const openNote = async (target?: number | string) => {
     const note = await db.notes.note(props.item.id);
@@ -63,11 +73,19 @@ export const SearchResult = (props: SearchResultProps) => {
   return (
     <View
       style={{
-        alignSelf: "flex-start",
+        alignSelf: colorHex ? "stretch" : "flex-start",
         alignItems: "flex-start",
         paddingHorizontal: DefaultAppStyles.GAP,
         paddingVertical: DefaultAppStyles.GAP_VERTICAL_SMALL,
-        width: "100%"
+        width: colorHex ? undefined : "100%",
+        marginHorizontal: colorHex ? 10 : 0,
+        marginVertical: colorHex ? 4 : 0,
+        borderRadius: colorHex ? 10 : 0,
+        backgroundColor: coloredBg,
+        borderWidth: colorHex ? 1 : 0,
+        borderLeftWidth: colorHex ? 4 : 0,
+        borderColor: coloredBorder,
+        borderLeftColor: colorHex
       }}
     >
       <Pressable

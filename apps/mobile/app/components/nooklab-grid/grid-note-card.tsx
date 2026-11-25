@@ -2,7 +2,7 @@
  * NookLab — ColorNote-style note card for 2-column mobile Grid View.
  */
 import { getFormattedDate, TagsWithDateEdited } from "@notesnook/common";
-import type { Color, Note, Reminder } from "@notesnook/core";
+import type { Color, HighlightedResult, Match, Note, Reminder } from "@notesnook/core";
 import { isReminderActive } from "@notesnook/core";
 import { useThemeColors } from "@notesnook/theme";
 import dayjs from "dayjs";
@@ -10,9 +10,13 @@ import React from "react";
 import { Pressable, View } from "react-native";
 import Icon from "react-native-vector-icons/MaterialCommunityIcons";
 import { notesnook } from "../../../e2e/test.ids";
+import { db } from "../../common/database";
 import useIsSelected from "../../hooks/use-selected";
 import { useTabStore } from "../../screens/editor/tiptap/use-tab-store";
+import { eSendEvent } from "../../services/event-manager";
 import { useSelectionStore } from "../../stores/use-selection-store";
+import { eOnLoadNote } from "../../utils/events";
+import { fluidTabsRef } from "../../utils/global-refs";
 import { AppFontSize } from "../../utils/size";
 import { openNote } from "../list-items/note/wrapper";
 import { selectItem } from "../list-items/selection-wrapper";
@@ -27,7 +31,7 @@ import {
 import { useNotePreview } from "./note-preview";
 
 type GridNoteCardProps = {
-  item: Note;
+  item: Note | HighlightedResult;
   index: number;
   date: number;
   color?: Color;
@@ -36,6 +40,29 @@ type GridNoteCardProps = {
   attachmentsCount: number;
   locked?: boolean;
 };
+
+function renderHighlightedTokens(
+  tokens: Match[],
+  accentBg: string,
+  accentFg: string,
+  keyPrefix: string
+) {
+  return tokens.map((token, idx) => (
+    <React.Fragment key={`${keyPrefix}-${token.id}-${idx}`}>
+      {token.prefix}
+      <Paragraph
+        style={{
+          backgroundColor: accentBg,
+          color: accentFg,
+          fontWeight: "700"
+        }}
+      >
+        {token.match}
+      </Paragraph>
+      {token.suffix}
+    </React.Fragment>
+  ));
+}
 
 export const GridNoteCard = React.memo(
   function GridNoteCard({
@@ -49,6 +76,9 @@ export const GridNoteCard = React.memo(
     locked
   }: GridNoteCardProps) {
     const { colors, isDark } = useThemeColors();
+    const isSearchResult = item.type === "searchResult";
+    const noteItem = isSearchResult ? undefined : item;
+    const searchItem = isSearchResult ? item : undefined;
     const isEditingNote = useTabStore(
       (state) =>
         state.tabs.find((t) => t.id === state.currentTab)?.session?.noteId ===
@@ -59,7 +89,7 @@ export const GridNoteCard = React.memo(
     const bodyPreview = useNotePreview(item, locked);
 
     const colorHex = color?.colorCode;
-    const isSelected = selectionMode === "note" && selected;
+    const isSelected = !isSearchResult && selectionMode === "note" && selected;
     const highlighted = isEditingNote || isSelected;
 
     const cardBackground = isSelected
@@ -75,10 +105,44 @@ export const GridNoteCard = React.memo(
         : colors.primary.border;
 
     const hasActiveReminder = !!(reminder && isReminderActive(reminder));
-    const hasExpiry = !!item.expiryDate?.value;
+    const hasExpiry = !!noteItem?.expiryDate?.value;
     const firstTag = tags?.items?.[0];
+    const matchCount = searchItem
+      ? searchItem.content?.reduce((acc, g) => acc + g.length, 0) || 0
+      : 0;
+
+    const openSearchNote = async () => {
+      if (!searchItem) return;
+      const note = await db.notes.note(searchItem.id);
+      if (!note) return;
+      eSendEvent(eOnLoadNote, {
+        item: {
+          ...note,
+          content: searchItem.rawContent
+            ? {
+                data: searchItem.rawContent || "",
+                type: "tiptap"
+              }
+            : undefined
+        }
+      });
+      fluidTabsRef.current?.goToPage("editor");
+    };
+
+    const openCardProperties = async () => {
+      if (noteItem) {
+        Properties.present(noteItem);
+        return;
+      }
+      const note = await db.notes.note(item.id);
+      if (note) Properties.present(note);
+    };
 
     const onLongPress = () => {
+      if (isSearchResult) {
+        openCardProperties();
+        return;
+      }
       if (useSelectionStore.getState().selectionMode !== item.type) {
         useSelectionStore.getState().setSelectionMode(item.type);
       }
@@ -86,8 +150,12 @@ export const GridNoteCard = React.memo(
     };
 
     const onPress = () => {
-      if (selectItem(item)) return;
-      openNote(item, false, false);
+      if (searchItem) {
+        openSearchNote();
+        return;
+      }
+      if (!noteItem || selectItem(noteItem)) return;
+      openNote(noteItem, false, false);
     };
 
     return (
@@ -152,10 +220,19 @@ export const GridNoteCard = React.memo(
                   fontWeight: "700"
                 }}
               >
-                {item.title || "Untitled"}
+                {searchItem
+                  ? searchItem.title?.length
+                    ? renderHighlightedTokens(
+                        searchItem.title,
+                        colors.secondary.accent,
+                        colors.secondary.accentForeground,
+                        `${item.id}-t`
+                      )
+                    : "Untitled"
+                  : noteItem?.title || "Untitled"}
               </Paragraph>
 
-              {selectionMode === "note" ? (
+              {!isSearchResult && selectionMode === "note" ? (
                 <AppIcon
                   name={selected ? "checkbox-outline" : "checkbox-blank-outline"}
                   color={selected ? colors.selected.icon : colors.secondary.icon}
@@ -166,7 +243,7 @@ export const GridNoteCard = React.memo(
                   hitSlop={8}
                   onPress={(e) => {
                     e.stopPropagation();
-                    Properties.present(item);
+                    openCardProperties();
                   }}
                   style={{
                     width: 24,
@@ -206,6 +283,25 @@ export const GridNoteCard = React.memo(
                   Locked note
                 </Paragraph>
               </View>
+            ) : searchItem?.content?.length ? (
+              <View style={{ gap: 2, overflow: "hidden" }}>
+                {searchItem.content.slice(0, 4).map((group, gIdx) => (
+                  <Paragraph
+                    key={`${item.id}-sg-${gIdx}`}
+                    numberOfLines={2}
+                    size={AppFontSize.xxs}
+                    color={colors.primary.paragraph}
+                    style={{ lineHeight: 16 }}
+                  >
+                    {renderHighlightedTokens(
+                      group,
+                      colors.secondary.accent,
+                      colors.secondary.accentForeground,
+                      `${item.id}-c-${gIdx}`
+                    )}
+                  </Paragraph>
+                ))}
+              </View>
             ) : bodyPreview ? (
               <Paragraph
                 numberOfLines={6}
@@ -237,20 +333,33 @@ export const GridNoteCard = React.memo(
                 flexShrink: 1
               }}
             >
-              <Paragraph
-                numberOfLines={1}
-                style={{
-                  fontSize: AppFontSize.xxxs,
-                  color: colors.secondary.paragraph
-                }}
-              >
-                {getFormattedDate(
-                  date,
-                  dayjs(date).isBefore(dayjs().subtract(1, "day").hour(23))
-                    ? "date"
-                    : "time"
-                )}
-              </Paragraph>
+              {searchItem ? (
+                <Paragraph
+                  numberOfLines={1}
+                  style={{
+                    fontSize: AppFontSize.xxxs,
+                    color: colorHex || colors.secondary.paragraph,
+                    fontWeight: "600"
+                  }}
+                >
+                  {matchCount > 0 ? `${matchCount} match${matchCount === 1 ? "" : "es"}` : "Match"}
+                </Paragraph>
+              ) : (
+                <Paragraph
+                  numberOfLines={1}
+                  style={{
+                    fontSize: AppFontSize.xxxs,
+                    color: colors.secondary.paragraph
+                  }}
+                >
+                  {getFormattedDate(
+                    date,
+                    dayjs(date).isBefore(dayjs().subtract(1, "day").hour(23))
+                      ? "date"
+                      : "time"
+                  )}
+                </Paragraph>
+              )}
 
               {firstTag ? (
                 <Paragraph
@@ -273,21 +382,21 @@ export const GridNoteCard = React.memo(
                 gap: 4
               }}
             >
-              {item.conflicted ? (
+              {noteItem?.conflicted ? (
                 <Icon
                   name="alert-circle"
                   size={12}
                   color={colors.error.accent}
                 />
               ) : null}
-              {item.pinned ? (
+              {noteItem?.pinned ? (
                 <Icon
                   name="pin-outline"
                   size={12}
                   color={colorHex || colors.primary.accent}
                 />
               ) : null}
-              {item.favorite ? (
+              {noteItem?.favorite ? (
                 <Icon name="star" size={12} color={colors.static.orange} />
               ) : null}
               {hasActiveReminder ? (
@@ -320,11 +429,21 @@ export const GridNoteCard = React.memo(
   (prev, next) =>
     prev.date === next.date &&
     prev.item?.id === next.item?.id &&
-    prev.item?.dateModified === next.item?.dateModified &&
-    prev.item?.title === next.item?.title &&
-    prev.item?.pinned === next.item?.pinned &&
-    prev.item?.favorite === next.item?.favorite &&
-    prev.item?.conflicted === next.item?.conflicted &&
+    prev.item?.type === next.item?.type &&
+    (prev.item?.type === "note" ? prev.item.dateModified : undefined) ===
+      (next.item?.type === "note" ? next.item.dateModified : undefined) &&
+    (prev.item?.type === "note"
+      ? prev.item.title
+      : prev.item?.title?.map((m) => m.match).join()) ===
+      (next.item?.type === "note"
+        ? next.item.title
+        : next.item?.title?.map((m) => m.match).join()) &&
+    (prev.item?.type === "note" ? prev.item.pinned : undefined) ===
+      (next.item?.type === "note" ? next.item.pinned : undefined) &&
+    (prev.item?.type === "note" ? prev.item.favorite : undefined) ===
+      (next.item?.type === "note" ? next.item.favorite : undefined) &&
+    (prev.item?.type === "note" ? prev.item.conflicted : undefined) ===
+      (next.item?.type === "note" ? next.item.conflicted : undefined) &&
     prev.color?.colorCode === next.color?.colorCode &&
     prev.reminder?.id === next.reminder?.id &&
     prev.attachmentsCount === next.attachmentsCount &&

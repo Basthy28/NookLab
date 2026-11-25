@@ -83,6 +83,7 @@ export const CreateColorDialog = DialogManager.register(
               label={strings.color()}
               id="color"
               name="color"
+              defaultValue="#dc2626"
               data-test-id="color-input"
               sx={{ flex: 1 }}
               onChange={(e) => {
@@ -94,6 +95,7 @@ export const CreateColorDialog = DialogManager.register(
             <input
               ref={colorPickerRef}
               type="color"
+              defaultValue="#dc2626"
               style={{
                 height: 41,
                 backgroundColor: "transparent",

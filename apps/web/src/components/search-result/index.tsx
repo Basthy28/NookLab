@@ -17,32 +17,180 @@ You should have received a copy of the GNU General Public License
 along with this program.  If not, see <http://www.gnu.org/licenses/>.
 */
 
-import { HighlightedResult, Match as TMatch } from "@notesnook/core";
+import { Color, HighlightedResult, Match as TMatch } from "@notesnook/core";
 import { Button, Flex, Text } from "@theme-ui/components";
 import React, { Fragment, useState } from "react";
 import { useEditorStore } from "../../stores/editor-store";
 import { useStore as useNoteStore } from "../../stores/note-store";
+import { useStore as useThemeStore } from "../../stores/theme-store";
 import ListItem from "../list-item";
 import { ChevronDown, ChevronRight } from "../icons";
-import { noteMenuItems } from "../note";
 import { db } from "../../common/db";
+import { useMenuTrigger } from "../../hooks/use-menu";
+import { noteMenuItems } from "../note";
 import { MenuItem } from "@notesnook/ui";
 
 type SearchResultProps = {
   item: HighlightedResult;
+  color?: Color;
+  grid?: boolean;
 };
 
 function SearchResult(props: SearchResultProps) {
-  const { item } = props;
+  const { item, color, grid } = props;
 
   const isOpened = useEditorStore((store) => store.isNoteOpen(item.id));
   const isExpandable = item.content.length > 0;
   const [isExpanded, setIsExpanded] = useState(isExpandable);
   const isCompact = useNoteStore((store) => store.viewMode === "compact");
+  const colorScheme = useThemeStore((store) => store.colorScheme);
+  const { openMenu } = useMenuTrigger();
 
   if (!item.title.length && !item.content.length) return null;
+
+  const isDark = colorScheme === "dark";
+  const colorHex = color?.colorCode;
+  const matchTotal =
+    item.content?.reduce((count, next) => next.length + count, 0) || 0;
+  const coloredBg = colorHex
+    ? `color-mix(in srgb, ${colorHex} ${isDark ? 22 : 26}%, ${
+        isDark ? "#1b1b1b" : "white"
+      })`
+    : undefined;
+  const coloredBorder = colorHex
+    ? `color-mix(in srgb, ${colorHex} ${isDark ? 45 : 55}%, transparent)`
+    : undefined;
+
+  if (grid) {
+    return (
+      <Flex
+        id={`id_${item.id}`}
+        data-test-id="grid-search-card"
+        onClick={() => {
+          useEditorStore.getState().openSession(item.id, {
+            rawContent: item.rawContent,
+            force: true
+          });
+        }}
+        onContextMenu={async (e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          const items = await menuItems(item);
+          if (items.length) openMenu(items);
+        }}
+        sx={{
+          height: "100%",
+          boxSizing: "border-box",
+          flexDirection: "column",
+          justifyContent: "space-between",
+          borderRadius: 4,
+          p: "10px 12px",
+          bg: isOpened
+            ? "background-selected"
+            : coloredBg || "background-secondary",
+          border: isOpened ? "2px solid" : "1px solid",
+          borderColor: isOpened
+            ? colorHex || "accent"
+            : coloredBorder || "border",
+          borderTop: colorHex ? `4px solid ${colorHex}` : undefined,
+          cursor: "pointer",
+          overflow: "hidden",
+          boxShadow: "0 1px 3px rgba(0,0,0,0.22)",
+          ":hover": { filter: isDark ? "brightness(1.08)" : "brightness(0.97)" }
+        }}
+      >
+        <Flex sx={{ flexDirection: "column", flex: 1, minHeight: 0, gap: "6px" }}>
+          <Flex sx={{ alignItems: "center", justifyContent: "space-between", gap: 1 }}>
+            <Text
+              data-test-id="title"
+              variant="body"
+              color={isOpened ? "paragraph-selected" : "heading"}
+              sx={{
+                whiteSpace: "nowrap",
+                overflow: "hidden",
+                textOverflow: "ellipsis",
+                fontWeight: "bold",
+                ".match": {
+                  bg: "accent-secondary",
+                  color: "accentForeground-secondary"
+                }
+              }}
+            >
+              {item.title.map((match, i) => (
+                <Match key={match.id || i} match={match} />
+              ))}
+            </Text>
+            {matchTotal > 0 ? (
+              <Text
+                variant="subBody"
+                sx={{
+                  flexShrink: 0,
+                  color: colorHex || "paragraph"
+                }}
+              >
+                {matchTotal}
+              </Text>
+            ) : null}
+          </Flex>
+
+          <Flex
+            sx={{
+              flexDirection: "column",
+              gap: "4px",
+              overflow: "hidden",
+              flex: 1
+            }}
+          >
+            {item.content.slice(0, 4).map((group, index) => (
+              <Text
+                key={`${item.id}_g_${index}`}
+                variant="body"
+                color={isOpened ? "paragraph-selected" : "paragraph"}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  useEditorStore.getState().openSession(item.id, {
+                    rawContent: item.rawContent,
+                    force: true,
+                    activeSearchResultId: group[0]?.id
+                  });
+                }}
+                sx={{
+                  fontSize: "12px",
+                  lineHeight: 1.35,
+                  display: "-webkit-box",
+                  WebkitLineClamp: 2,
+                  WebkitBoxOrient: "vertical",
+                  overflow: "hidden",
+                  ".match": {
+                    bg: "accent-secondary",
+                    color: "accentForeground-secondary"
+                  }
+                }}
+              >
+                {group.map((match, i) => (
+                  <Match key={match.id || i} match={match} />
+                ))}
+              </Text>
+            ))}
+          </Flex>
+        </Flex>
+      </Flex>
+    );
+  }
+
   return (
-    <Flex sx={{ flexDirection: "column" }}>
+    <Flex
+      sx={{
+        flexDirection: "column",
+        mx: 1,
+        my: colorHex ? "3px" : undefined,
+        borderRadius: colorHex ? "default" : undefined,
+        bg: coloredBg,
+        border: coloredBorder ? `1px solid ${coloredBorder}` : undefined,
+        borderLeft: colorHex ? `4px solid ${colorHex}` : undefined,
+        overflow: colorHex ? "hidden" : undefined
+      }}
+    >
       <ListItem
         isFocused={isOpened}
         item={item}
@@ -111,24 +259,20 @@ function SearchResult(props: SearchResultProps) {
                   }
                 }}
               >
-                {item.title.map((match) => (
-                  <Match match={match} />
+                {item.title.map((match, i) => (
+                  <Match key={match.id || i} match={match} />
                 ))}
               </Text>
 
-              <Text variant="subBody">
-                {item.content?.reduce(
-                  (count, next) => next.length + count,
-                  0
-                ) || 0}
-              </Text>
+              <Text variant="subBody">{matchTotal}</Text>
             </Flex>
           </Flex>
         }
         sx={{
           my: "small",
           borderRadius: "default",
-          mx: 1
+          mx: colorHex ? 0 : 1,
+          bg: "transparent"
         }}
       />
       {isExpanded && !isCompact
@@ -166,15 +310,16 @@ function SearchResult(props: SearchResultProps) {
                     }
                   }}
                 >
-                  {match.map((match) => (
-                    <Match match={match} />
+                  {match.map((m, i) => (
+                    <Match key={m.id || i} match={m} />
                   ))}
                 </Text>
               }
               sx={{
                 px: 1,
                 borderBottom: "1px solid var(--border)",
-                mx: 1
+                mx: colorHex ? 0 : 1,
+                bg: "transparent"
               }}
             />
           ))

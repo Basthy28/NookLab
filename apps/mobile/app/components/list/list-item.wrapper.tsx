@@ -96,17 +96,17 @@ export function ListItemWrapper(props: ListItemWrapperProps) {
 
     if (resolvedItem && resolvedItem.item) {
       const data = resolvedItem.data;
-      if (resolvedItem.item.type === "note" && isNoteResolvedData(data)) {
+      const isNoteLike =
+        resolvedItem.item.type === "note" ||
+        resolvedItem.item.type === "searchResult";
+      if (isNoteLike && isNoteResolvedData(data)) {
         tags.current = data.tags;
         notebooks.current = data.notebooks;
         reminder.current = data.reminder;
         color.current = data.color;
         attachmentsCount.current = data.attachments?.total || 0;
         locked.current = data.locked || false;
-      } else if (
-        resolvedItem.item.type === "note" &&
-        !isNoteResolvedData(data)
-      ) {
+      } else if (isNoteLike && !isNoteResolvedData(data)) {
         tags.current = undefined;
         notebooks.current = undefined;
         reminder.current = undefined;
@@ -327,7 +327,10 @@ export function ListItemWrapper(props: ListItemWrapperProps) {
               }}
             />
           ) : null}
-          <SearchResult item={item as HighlightedResult} />
+          <SearchResult
+            item={item as HighlightedResult}
+            color={color.current}
+          />
         </>
       );
     default:

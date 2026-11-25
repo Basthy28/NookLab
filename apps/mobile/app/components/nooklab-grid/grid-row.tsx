@@ -12,6 +12,7 @@ import {
   GroupingByIdKey,
   GroupingKey,
   GroupOptions,
+  HighlightedResult,
   Item,
   Note,
   Reminder,
@@ -33,7 +34,7 @@ import {
 import { GridNoteCard } from "./grid-note-card";
 
 type ResolvedNoteState = {
-  item: Note;
+  item: Note | HighlightedResult;
   color?: Color;
   tags?: TagsWithDateEdited;
   reminder?: Reminder;
@@ -57,10 +58,11 @@ function GridNoteCell({
   const timer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
 
   const applyResolved = useCallback((entry: any) => {
-    if (!entry?.item || entry.item.type !== "note") return;
+    const item = entry?.item;
+    if (!item || (item.type !== "note" && item.type !== "searchResult")) return;
     const data = isNoteResolvedData(entry.data) ? entry.data : undefined;
     setResolved({
-      item: entry.item as Note,
+      item: item as Note | HighlightedResult,
       color: data?.color,
       tags: data?.tags,
       reminder: data?.reminder,
@@ -73,10 +75,13 @@ function GridNoteCell({
   if (currentIndex.current !== index) {
     currentIndex.current = index;
     const cached = items?.cacheItem(index);
-    if (cached?.item) {
+    if (
+      cached?.item &&
+      (cached.item.type === "note" || cached.item.type === "searchResult")
+    ) {
       const data = isNoteResolvedData(cached.data) ? cached.data : undefined;
       const next: ResolvedNoteState = {
-        item: cached.item as Note,
+        item: cached.item as Note | HighlightedResult,
         color: data?.color,
         tags: data?.tags,
         reminder: data?.reminder,
@@ -84,7 +89,10 @@ function GridNoteCell({
         locked: !!data?.locked,
         notebooks: data?.notebooks
       };
-      if (resolved?.item?.id !== next.item.id) {
+      if (
+        resolved?.item?.id !== next.item.id ||
+        resolved?.color?.colorCode !== next.color?.colorCode
+      ) {
         setResolved(next);
       }
     } else if (resolved !== null) {
@@ -131,7 +139,11 @@ function GridNoteCell({
       <GridNoteCard
         item={resolved.item}
         index={index}
-        date={getSortValue(groupOptions, resolved.item) || 0}
+        date={
+          resolved.item.type === "note"
+            ? getSortValue(groupOptions, resolved.item) || 0
+            : Date.now()
+        }
         color={resolved.color}
         tags={resolved.tags}
         reminder={resolved.reminder}

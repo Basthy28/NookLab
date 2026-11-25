@@ -48,11 +48,11 @@ const ColorPicker = ({
   setVisible: (value: boolean) => void;
   onColorAdded: (color: Color) => void;
 }) => {
-  const [selectedColor, setSelectedColor] = useState<string>();
+  const [selectedColor, setSelectedColor] = useState<string>("#dc2626");
   const { colors } = useThemeColors();
   const inputRef = useRef<TextInput>(null);
   const title = useRef<string>(undefined);
-  const colorRef = useStoredRef("color-ref", "#f0f0f0");
+  const colorRef = useStoredRef("color-ref", "#dc2626");
 
   return (
     <BaseDialog
@@ -120,7 +120,7 @@ const ColorPicker = ({
             >
               <Input
                 fwdRef={inputRef}
-                placeholder="#f0f0f0"
+                placeholder="#dc2626"
                 marginBottom={0}
                 onChangeText={(value) => {
                   if (HEX_COLOR_REGEX_ALPHA.test(value)) {

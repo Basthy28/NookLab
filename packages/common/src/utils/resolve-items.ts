@@ -46,7 +46,7 @@ export async function resolveItems(ids: string[], items: Item[]) {
   if (!ids.length || !items.length) return [];
 
   const { type } = items[0];
-  if (type === "note") return resolveNotes(ids);
+  if (type === "note" || type === "searchResult") return resolveNotes(ids);
   else if (type === "notebook") {
     return await db.notebooks.totalNotes(...ids);
   } else if (type === "tag") {

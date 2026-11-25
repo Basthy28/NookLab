@@ -51,8 +51,10 @@ export function ListItemWrapper(props: ListItemWrapperProps) {
   const { group, compact, grid, context, item, data } = props;
 
   switch (item.type) {
-    case "searchResult":
-      return <SearchResult item={item} />;
+    case "searchResult": {
+      const resolvedData = isNoteResolvedData(data) ? data : {};
+      return <SearchResult item={item} grid={grid} color={resolvedData.color} />;
+    }
     case "note": {
       const resolvedData = isNoteResolvedData(data) ? data : {};
       if (grid)
