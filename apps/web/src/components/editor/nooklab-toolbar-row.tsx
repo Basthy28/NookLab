@@ -15,6 +15,11 @@ import {
 import { strings } from "@notesnook/intl";
 import { Icon } from "@notesnook/ui";
 import { Button, Flex } from "@theme-ui/components";
+import {
+  NOOKLAB_AUTOCORRECT_ICON,
+  toggleAutocorrect,
+  useAutocorrectEnabled
+} from "../../common/nooklab-autocorrect";
 
 const PROMOTED_TOOL_IDS = new Set<ToolId>(["textColor", "highlight"]);
 
@@ -83,6 +88,7 @@ function DirectToolButton({
 }
 
 export function NookLabToolbarRow({ editor }: { editor: Editor }) {
+  const autocorrectEnabled = useAutocorrectEnabled();
   if (!editor.isEditable) return null;
 
   const TextColorTool = findTool("textColor");
@@ -104,6 +110,13 @@ export function NookLabToolbarRow({ editor }: { editor: Editor }) {
       iconPath: Icons.attachment,
       active: editor.isActive("attachment"),
       onClick: () => editor.storage.openAttachmentPicker?.("file")
+    },
+    {
+      id: "tool-nooklab-autocorrect",
+      title: "Autocorrect (PT-PT / EN)",
+      iconPath: NOOKLAB_AUTOCORRECT_ICON,
+      active: autocorrectEnabled,
+      onClick: () => toggleAutocorrect()
     }
   ];
 

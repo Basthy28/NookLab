@@ -68,6 +68,10 @@ import {
   NookLabToolbarRow
 } from "./nooklab-toolbar-row";
 import { handleNumpadEditorKeyDown } from "../../common/nooklab-numpad";
+import {
+  handleAutocorrectKeyDown,
+  handleAutocorrectUpdate
+} from "../../common/nooklab-autocorrect";
 import { EDITOR_ZOOM } from "./common";
 import { ScrollContainer } from "@notesnook/ui";
 import { showFeatureNotAllowedToast } from "../../common/toasts";
@@ -247,6 +251,7 @@ function TipTap(props: TipTapProps) {
       editorProps: {
         handleKeyDown(view, event) {
           if (handleNumpadEditorKeyDown(view, event)) return true;
+          if (handleAutocorrectKeyDown(view, event)) return true;
           if ((event.ctrlKey || event.metaKey) && event.key === "s") {
             event.preventDefault();
             onChange?.(
@@ -335,6 +340,7 @@ function TipTap(props: TipTapProps) {
         onContentChange?.();
 
         deferredUpdateNoteStatistics(id, () => editor.state.doc.content);
+        handleAutocorrectUpdate(editor as Editor, transaction);
 
         const preventSave = transaction?.getMeta("preventSave") as boolean;
         const ignoreEdit = transaction.getMeta("ignoreEdit") as boolean;
