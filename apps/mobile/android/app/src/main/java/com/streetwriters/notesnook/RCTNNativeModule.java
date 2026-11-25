@@ -2,6 +2,8 @@ package com.streetwriters.notesnook;
 
 import android.app.Activity;
 import android.appwidget.AppWidgetManager;
+import android.content.ClipData;
+import android.content.ClipboardManager;
 import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
@@ -57,6 +59,21 @@ public class RCTNNativeModule extends ReactContextBaseJavaModule {
     public void setBackgroundColor(final String color) {
         try {
            getCurrentActivity().getWindow().getDecorView().setBackgroundColor(Color.parseColor(color));
+        } catch (Exception e) {
+
+        }
+    }
+
+    @ReactMethod
+    public void copyHtml(final String text, final String html) {
+        try {
+            ClipboardManager clipboard = (ClipboardManager) mContext.getSystemService(Context.CLIPBOARD_SERVICE);
+            if (clipboard == null) return;
+            String plain = text != null ? text : "";
+            ClipData clip = (html != null && !html.isEmpty())
+                    ? ClipData.newHtmlText("NookLab", plain, html)
+                    : ClipData.newPlainText("NookLab", plain);
+            clipboard.setPrimaryClip(clip);
         } catch (Exception e) {
 
         }

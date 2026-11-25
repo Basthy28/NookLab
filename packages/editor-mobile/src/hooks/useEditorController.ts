@@ -475,8 +475,11 @@ export function useEditorController({
     return true;
   }, []);
 
-  const copyToClipboard = (text: string) => {
-    post(EditorEvents.copyToClipboard, text);
+  const copyToClipboard = (text: string, html?: string, toast?: string) => {
+    post(
+      EditorEvents.copyToClipboard,
+      html || toast ? { text, html, toast } : text
+    );
   };
 
   const getAttachmentData = (attachment: Partial<Attachment>) => {

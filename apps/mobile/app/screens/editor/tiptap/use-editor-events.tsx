@@ -76,6 +76,7 @@ import {
 } from "../../../utils/events";
 import { openLinkInBrowser } from "../../../utils/functions";
 import { fluidTabsRef } from "../../../utils/global-refs";
+import { NotesnookModule } from "../../../utils/notesnook-module";
 import { sleep } from "../../../utils/time";
 import AddReminder from "../../add-reminder";
 import ManageTags from "../../manage-tags";
@@ -685,9 +686,19 @@ export const useEditorEvents = (
           break;
         }
         case EditorEvents.copyToClipboard: {
-          Clipboard.setString(editorMessage.value as string);
+          const val = editorMessage.value as
+            | string
+            | { text?: string; html?: string; toast?: string };
+          const text = typeof val === "string" ? val : val?.text || "";
+          const html = typeof val === "object" ? val?.html : undefined;
+          const toast = typeof val === "object" ? val?.toast : undefined;
+          if (Platform.OS === "android" && html) {
+            NotesnookModule.copyHtml(text, html);
+          } else {
+            Clipboard.setString(text);
+          }
           ToastManager.show({
-            message: strings.linkCopied(),
+            message: toast || strings.linkCopied(),
             type: "success"
           });
           break;

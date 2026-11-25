@@ -21,6 +21,10 @@ import { useEffect } from "react";
 import { useTabContext } from "../hooks/useTabStore";
 import { EmotionEditorToolbarTheme } from "../theme-factory";
 import { Settings } from "../utils";
+import {
+  filterPromotedTools,
+  NookLabToolbarRow
+} from "./nooklab-toolbar-row";
 export default function TiptapEditorWrapper(props: {
   options: Partial<TiptapOptions>;
   onEditorUpdate: (editor: Editor) => void;
@@ -34,16 +38,18 @@ export default function TiptapEditorWrapper(props: {
     props.onEditorUpdate(editor);
   }, [editor, props]);
 
+  const filteredTools = Array.isArray(props.settings.tools)
+    ? filterPromotedTools([...props.settings.tools])
+    : [];
+
   return (
     <>
       {tab.session?.locked ? null : (
         <EmotionEditorToolbarTheme>
-          <Toolbar
-            className="theme-scope-editorToolbar"
-            sx={{
+          <div
+            style={{
               display: props.settings.noToolbar ? "none" : "flex",
-              overflowY: "hidden",
-              minHeight: "45px",
+              flexDirection: "column",
               ...(globalThis.__PLATFORM__ === "ios" && {
                 position: "absolute",
                 bottom: 0,
@@ -51,16 +57,22 @@ export default function TiptapEditorWrapper(props: {
                 right: 0
               })
             }}
-            editor={editor}
-            location="bottom"
-            tools={
-              Array.isArray(props.settings.tools)
-                ? [...props.settings.tools]
-                : []
-            }
-            defaultFontFamily={props.settings.fontFamily}
-            defaultFontSize={props.settings.fontSize}
-          />
+          >
+            <Toolbar
+              className="theme-scope-editorToolbar"
+              sx={{
+                display: "flex",
+                overflowY: "hidden",
+                minHeight: "42px"
+              }}
+              editor={editor}
+              location="bottom"
+              tools={filteredTools}
+              defaultFontFamily={props.settings.fontFamily}
+              defaultFontSize={props.settings.fontSize}
+            />
+            <NookLabToolbarRow editor={editor} />
+          </div>
         </EmotionEditorToolbarTheme>
       )}
     </>

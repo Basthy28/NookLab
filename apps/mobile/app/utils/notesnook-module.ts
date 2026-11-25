@@ -28,6 +28,7 @@ export type ShortcutInfo = {
 
 interface NotesnookModuleInterface {
   getActivityName: () => Promise<string>;
+  copyHtml: (text: string, html?: string) => void;
   setBackgroundColor: (color: string) => void;
   setSecureMode: (enabled: boolean) => void;
   saveAndFinish: () => void;
@@ -70,6 +71,7 @@ interface NotesnookModuleInterface {
 export const NotesnookModule: NotesnookModuleInterface = Platform.select({
   ios: {
     getActivityName: () => {},
+    copyHtml: () => {},
     setBackgroundColor: () => {},
     setSecureMode: () => {},
     saveAndFinish: () => {},

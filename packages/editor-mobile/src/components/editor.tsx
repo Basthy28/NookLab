@@ -44,6 +44,11 @@ import { postAsyncWithTimeout, Settings } from "../utils";
 import { EditorEvents } from "../utils/editor-events";
 import { pendingSaveRequests } from "../utils/pending-saves";
 import Header from "./header";
+import {
+  handleAutocorrectKeyDown,
+  handleAutocorrectUpdate,
+  scheduleWarmup
+} from "../common/nooklab-autocorrect";
 import StatusBar from "./statusbar";
 import Tags from "./tags";
 import TiptapEditorWrapper from "./tiptap";
@@ -88,6 +93,10 @@ const Tiptap = ({
   useEffect(() => {
     setPasswordError(null);
   }, [tab.session?.noteId]);
+
+  useEffect(() => {
+    scheduleWarmup(600);
+  }, []);
 
   logger("info", tabRef.current.id, "rendering");
 
@@ -141,6 +150,7 @@ const Tiptap = ({
           editor as Editor,
           transaction.getMeta("ignoreEdit")
         );
+        handleAutocorrectUpdate(editor as Editor, transaction);
 
         if (valueRef.current.undo !== editor.can().undo()) {
           setUndo(editor.can().undo());
@@ -184,6 +194,7 @@ const Tiptap = ({
       editable: !tab.session?.readonly,
       editorProps: {
         editable: () => !tabRef.current.session?.readonly,
+        handleKeyDown: (view, event) => handleAutocorrectKeyDown(view, event),
         handlePaste: (view, event) => {
           const hasFiles = event.clipboardData?.types?.some((type) =>
             type.startsWith("Files")
@@ -223,8 +234,11 @@ const Tiptap = ({
       openLink: (url) => {
         return globalThis.editorControllers[tab.id]?.openLink(url) || true;
       },
-      copyToClipboard: (text) => {
-        globalThis.editorControllers[tab.id]?.copyToClipboard(text);
+      copyToClipboard: (text, html) => {
+        const ctrl = globalThis.editorControllers[tab.id] as
+          | { copyToClipboard?: (text: string, html?: string) => void }
+          | undefined;
+        ctrl?.copyToClipboard?.(text, html);
       },
       onFocus: () => {
         getContentDiv().classList.remove("searching");

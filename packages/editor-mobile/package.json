@@ -27,12 +27,14 @@
     "react-scripts": "^5.0.1"
   },
   "scripts": {
+    "prestart": "node scripts/sync-nooklab-assets.mjs",
     "start": "cross-env DISABLE_ESLINT_PLUGIN=true GENERATE_SOURCEMAP=true  BROWSER=none react-scripts start",
+    "prebuild": "node scripts/sync-nooklab-assets.mjs",
     "build": "cross-env DISABLE_ESLINT_PLUGIN=true GENERATE_SOURCEMAP=true  BROWSER=none react-scripts build",
     "postbuild": "node scripts/build.mjs",
     "test": "react-scripts test",
     "eject": "react-scripts eject",
-    "postinstall": "patch-package"
+    "postinstall": "patch-package && node scripts/sync-nooklab-assets.mjs"
   },
   "homepage": ".",
   "browserslist": {
