@@ -63,6 +63,10 @@ import Skeleton from "react-loading-skeleton";
 import useMobile from "../../hooks/use-mobile";
 import useTablet from "../../hooks/use-tablet";
 import { TimeFormat } from "@notesnook/core";
+import {
+  filterPromotedTools,
+  NookLabToolbarRow
+} from "./nooklab-toolbar-row";
 import { EDITOR_ZOOM } from "./common";
 import { ScrollContainer } from "@notesnook/ui";
 import { showFeatureNotAllowedToast } from "../../common/toasts";
@@ -542,10 +546,16 @@ function TipTap(props: TipTapProps) {
     };
   }, []);
 
+  const filteredToolbarTools = useMemo(
+    () => filterPromotedTools(toolbarConfig),
+    [toolbarConfig]
+  );
+
   return (
     <>
       <ScopedThemeProvider
         scope="editorToolbar"
+        className="editor-toolbar"
         sx={{
           width: "100%",
           position: "sticky",
@@ -579,11 +589,12 @@ function TipTap(props: TipTapProps) {
               flexWrap: "unset",
               overflowX: "unset"
             }}
-            tools={toolbarConfig}
+            tools={filteredToolbarTools}
             defaultFontFamily={fontFamily}
             defaultFontSize={fontSize}
           />
         </ScrollContainer>
+        <NookLabToolbarRow editor={editor} />
       </ScopedThemeProvider>
     </>
   );
