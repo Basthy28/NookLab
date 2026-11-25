@@ -1,0 +1,172 @@
+name: NookLab Android APK
+
+on:
+  push:
+    branches:
+      - "nooklab"
+    paths:
+      - "apps/mobile/**"
+      - "packages/editor-mobile/**"
+      - ".github/workflows/nooklab-android-build.yml"
+  workflow_dispatch:
+
+concurrency:
+  group: nooklab-android-build
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  build-android:
+    name: Build Signed NookLab Android APK
+    runs-on: ubuntu-22.04
+    timeout-minutes: 45
+    steps:
+      - name: Checkout NookLab (with Git LFS prebuilt AARs)
+        uses: actions/checkout@v5
+        with:
+          ref: nooklab
+          lfs: true
+
+      - name: Setup Node.js
+        uses: ./.github/actions/setup-node-with-cache
+
+      - name: Setup JDK 17
+        uses: joschi/setup-jdk@v2
+        with:
+          java-version: "17"
+          architecture: "x64"
+
+      - name: Free disk space
+        uses: jlumbroso/free-disk-space@main
+        with:
+          tool-cache: false
+          android: false
+          dotnet: true
+          haskell: true
+          large-packages: true
+          docker-images: true
+          swap-storage: true
+
+      - name: Cache Gradle packages
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.gradle/caches
+            ~/.gradle/wrapper
+          key: gradle-${{ runner.os }}-${{ hashFiles('apps/mobile/android/gradle/**', 'apps/mobile/android/*.gradle', 'apps/mobile/android/gradle.properties') }}
+          restore-keys: |
+            gradle-${{ runner.os }}-
+
+      - name: Setup Ccache
+        uses: hendrikmuhs/ccache-action@v1.2.11
+        with:
+          key: nooklab-android-${{ github.ref_name }}
+          max-size: 1G
+
+      - name: Install root, web test, and mobile dependencies
+        shell: bash
+        run: |
+          set -euo pipefail
+          npm ci --ignore-scripts --prefer-offline --no-audit
+          npm run bootstrap -- --scope=web
+          npm run bootstrap -- --scope=mobile
+
+      - name: Build mobile rich editor bundle and check TypeScript
+        shell: bash
+        run: |
+          set -euo pipefail
+          npm run tx mobile:build
+          cd packages/editor-mobile
+          npx tsc --noEmit
+          cd ../../apps/mobile
+          npx tsc --noEmit
+
+      - name: Run NookLab unit tests
+        shell: bash
+        run: |
+          set -euo pipefail
+          (cd apps/web && npx vitest run nooklab-)
+          (cd apps/mobile && node ../web/node_modules/vitest/vitest.mjs run --globals __tests__/nooklab-mobile.test.ts)
+
+      - name: Build signed release APKs
+        shell: bash
+        env:
+          NOOKLAB_ANDROID_KEYSTORE_B64: ${{ secrets.NOOKLAB_ANDROID_KEYSTORE_B64 }}
+          NOOKLAB_ANDROID_KEY_ALIAS: ${{ secrets.NOOKLAB_ANDROID_KEY_ALIAS }}
+          NOOKLAB_ANDROID_KEY_PASSWORD: ${{ secrets.NOOKLAB_ANDROID_KEY_PASSWORD }}
+          GITHUB_RELEASE: "true"
+          ENVFILE: .env.public
+        run: |
+          set -euo pipefail
+          keystore_file="/tmp/nooklab-release.jks"
+          cleanup() {
+            rm -f "${keystore_file}"
+          }
+          trap cleanup EXIT
+
+          if [ -z "${NOOKLAB_ANDROID_KEYSTORE_B64:-}" ] || [ -z "${NOOKLAB_ANDROID_KEY_PASSWORD:-}" ]; then
+            echo "::error::Missing NOOKLAB_ANDROID_KEYSTORE_B64 or NOOKLAB_ANDROID_KEY_PASSWORD secret."
+            exit 1
+          fi
+
+          printf '%s' "${NOOKLAB_ANDROID_KEYSTORE_B64}" | base64 -d > "${keystore_file}"
+          export NOOKLAB_KEYSTORE_FILE="${keystore_file}"
+          export NOOKLAB_KEYSTORE_PASSWORD="${NOOKLAB_ANDROID_KEY_PASSWORD}"
+          export NOOKLAB_KEY_ALIAS="${NOOKLAB_ANDROID_KEY_ALIAS:-nooklab-release}"
+          export NOOKLAB_KEY_PASSWORD="${NOOKLAB_ANDROID_KEY_PASSWORD}"
+
+          cd apps/mobile/android
+          chmod +x ./gradlew
+          rm -f app/debug.keystore
+          ./gradlew :app:assembleRelease --no-daemon \
+            -PreactNativeArchitectures=armeabi-v7a,arm64-v8a \
+            -PuniversalApk=true
+
+      - name: Verify APK signatures and stage artifacts
+        shell: bash
+        run: |
+          set -euo pipefail
+          out_dir="apps/mobile/android/app/build/outputs/apk/release"
+          echo "Built APK files:"
+          find "${out_dir}" -type f -name '*.apk' -exec ls -lh {} +
+
+          apksigner_bin="$(find "${ANDROID_HOME}/build-tools" -name apksigner -type f | sort -V | tail -n 1)"
+          if [ -z "${apksigner_bin}" ]; then
+            echo "::error::apksigner not found under ${ANDROID_HOME}/build-tools"
+            exit 1
+          fi
+
+          mkdir -p /tmp/nooklab-apks
+          arm64_apk="$(find "${out_dir}" -maxdepth 2 -type f -name '*arm64-v8a*release*.apk' | head -n 1 || true)"
+          univ_apk="$(find "${out_dir}" -maxdepth 2 -type f -name '*universal*release*.apk' | head -n 1 || true)"
+          single_apk="$(find "${out_dir}" -maxdepth 2 -type f -name 'app-release.apk' | head -n 1 || true)"
+
+          if [ -n "${arm64_apk}" ]; then
+            "${apksigner_bin}" verify --print-certs "${arm64_apk}"
+            cp "${arm64_apk}" /tmp/nooklab-apks/NookLab-arm64-v8a.apk
+          fi
+
+          if [ -n "${univ_apk}" ]; then
+            "${apksigner_bin}" verify --print-certs "${univ_apk}"
+            cp "${univ_apk}" /tmp/nooklab-apks/NookLab-universal.apk
+          elif [ -n "${single_apk}" ]; then
+            "${apksigner_bin}" verify --print-certs "${single_apk}"
+            cp "${single_apk}" /tmp/nooklab-apks/NookLab-universal.apk
+          fi
+
+          if [ -z "$(ls -A /tmp/nooklab-apks)" ]; then
+            echo "::error::No release APKs found in ${out_dir}"
+            exit 1
+          fi
+
+          ls -lh /tmp/nooklab-apks
+
+      - name: Upload signed APK artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: nooklab-android-apks
+          path: /tmp/nooklab-apks/*.apk
+          if-no-files-found: error
+          retention-days: 30
