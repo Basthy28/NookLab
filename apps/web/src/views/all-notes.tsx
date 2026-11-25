@@ -29,7 +29,9 @@ import { ListLoader } from "../components/loaders/list-loader";
 
 function Home() {
   const notes = useStore((store) => store.notes);
-  const isCompact = useStore((store) => store.viewMode === "compact");
+  const viewMode = useStore((store) => store.viewMode);
+  const isCompact = viewMode === "compact";
+  const isGrid = viewMode === "grid";
   const refresh = useStore((store) => store.refresh);
   const setContext = useStore((store) => store.setContext);
   const filteredItems = useSearch(
@@ -57,6 +59,7 @@ function Home() {
       type="home"
       group="home"
       compact={isCompact}
+      grid={isGrid}
       refresh={refresh}
       items={filteredItems || notes}
       isSearching={!!filteredItems}

@@ -28,7 +28,7 @@ import { Note, VirtualizedGrouping } from "@notesnook/core";
 import { Context } from "../components/list-container/types";
 import { useEditorStore } from "./editor-store";
 
-type ViewMode = "detailed" | "compact";
+type ViewMode = "detailed" | "compact" | "grid";
 class NoteStore extends BaseStore<NoteStore> {
   notes: VirtualizedGrouping<Note> | undefined = undefined;
   contextNotes: VirtualizedGrouping<Note> | undefined = undefined;

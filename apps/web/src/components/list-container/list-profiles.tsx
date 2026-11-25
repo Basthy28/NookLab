@@ -29,6 +29,7 @@ import { isNoteResolvedData } from "@notesnook/common";
 import { Attachment } from "../attachment";
 import { Notebook } from "../notebook";
 import SearchResult from "../search-result";
+import { GridNoteCard } from "../nooklab-grid/grid-note-card";
 
 const SINGLE_LINE_HEIGHT = 1.4;
 const DEFAULT_LINE_HEIGHT =
@@ -41,22 +42,35 @@ type ListItemWrapperProps = {
   data?: unknown;
   context?: Context;
   compact?: boolean;
+  grid?: boolean;
 };
 
+export const GRID_ITEM_HEIGHT = 200;
+
 export function ListItemWrapper(props: ListItemWrapperProps) {
-  const { group, compact, context, item, data } = props;
+  const { group, compact, grid, context, item, data } = props;
 
   switch (item.type) {
     case "searchResult":
       return <SearchResult item={item} />;
     case "note": {
+      const resolvedData = isNoteResolvedData(data) ? data : {};
+      if (grid)
+        return (
+          <GridNoteCard
+            {...resolvedData}
+            item={item}
+            context={context}
+            date={getDate(item, group)}
+          />
+        );
       return (
         <Note
           compact={compact}
           item={item}
           date={getDate(item, group)}
           context={context}
-          {...(isNoteResolvedData(data) ? data : {})}
+          {...resolvedData}
         />
       );
     }
@@ -113,10 +127,21 @@ const FULL_PLACEHOLDER_ITEM_DATA: PlaceholderData = {
     }
   ]
 };
+const GRID_PLACEHOLDER_ITEM_DATA: PlaceholderData = {
+  padding: [10, 10, 10, 10],
+  gap: 6,
+  lines: [
+    { height: 16, width: "60%" },
+    { height: 12, width: "100%" },
+    { height: 12, width: "80%" }
+  ]
+};
 export function getListItemDefaultHeight(
   group: GroupingKey | undefined,
-  compact: boolean | undefined
+  compact: boolean | undefined,
+  grid?: boolean
 ) {
+  if (grid) return GRID_ITEM_HEIGHT;
   const data = getListItemPlaceholderData(group, compact);
   let height = data.padding[0] + data.padding[2];
   if (data.gap) height += data.gap * data.lines.length - 1;
@@ -125,8 +150,10 @@ export function getListItemDefaultHeight(
 }
 export function getListItemPlaceholderData(
   group: GroupingKey | undefined,
-  compact: boolean | undefined
+  compact: boolean | undefined,
+  grid?: boolean
 ): PlaceholderData {
+  if (grid) return GRID_PLACEHOLDER_ITEM_DATA;
   switch (group) {
     case "home":
     case "favorites":

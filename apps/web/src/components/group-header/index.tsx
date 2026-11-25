@@ -30,6 +30,7 @@ import {
   CompactView,
   Icon
 } from "../icons";
+import { GridView } from "../nooklab-grid/grid-icon";
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { Button, Flex, Text } from "@theme-ui/components";
 import { db } from "../../common/db";
@@ -454,19 +455,41 @@ function GroupHeader(props: GroupHeaderProps) {
               }}
             />
           )}
-          {viewMode && (
-            <IconButton
-              icon={viewMode === "compact" ? DetailedView : CompactView}
-              title={
-                viewMode === "compact"
-                  ? strings.switchToDetailedView()
-                  : strings.switchToCompactView()
-              }
-              onClick={() =>
-                setViewMode(viewMode === "compact" ? "detailed" : "compact")
-              }
-            />
-          )}
+          {viewMode &&
+            (() => {
+              // NookLab adds a 3rd view mode: detailed -> compact -> grid.
+              const isNotesView =
+                groupingKey === "home" ||
+                groupingKey === "notes" ||
+                groupingKey === "favorites";
+              const setMode = setViewMode as unknown as (mode: string) => void;
+              const next =
+                viewMode === "detailed"
+                  ? "compact"
+                  : viewMode === "compact" && isNotesView
+                  ? "grid"
+                  : "detailed";
+              const CurrentIcon =
+                viewMode === "grid"
+                  ? GridView
+                  : viewMode === "compact"
+                  ? CompactView
+                  : DetailedView;
+              const title =
+                next === "compact"
+                  ? strings.switchToCompactView()
+                  : next === "grid"
+                  ? "Switch to grid view"
+                  : strings.switchToDetailedView();
+              return (
+                <IconButton
+                  testId="nooklab-view-mode"
+                  icon={CurrentIcon}
+                  title={title}
+                  onClick={() => setMode(next)}
+                />
+              );
+            })()}
         </Flex>
       )}
     </Flex>

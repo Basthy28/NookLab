@@ -41,7 +41,9 @@ function Notes(props: NotesProps) {
       : context?.type === "archive"
       ? "archive"
       : "notes";
-  const isCompact = useNotesStore((store) => store.viewMode === "compact");
+  const viewMode = useNotesStore((store) => store.viewMode);
+  const isCompact = viewMode === "compact";
+  const isGrid = viewMode === "grid";
   const filteredItems = useSearch(
     context?.type === "notebook" ? "notebook" : "notes",
     async (query, sortOptions) => {
@@ -59,6 +61,7 @@ function Notes(props: NotesProps) {
       group={type}
       refresh={refreshContext}
       compact={isCompact}
+      grid={isGrid}
       context={context}
       items={filteredItems || contextNotes}
       isSearching={!!filteredItems}

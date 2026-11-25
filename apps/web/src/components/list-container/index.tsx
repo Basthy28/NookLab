@@ -47,6 +47,7 @@ import {
 import { getRandom, useResolvedItem } from "@notesnook/common";
 import { Context } from "./types";
 import { AppEventManager, AppEvents } from "../../common/app-events";
+import { NookLabGrid } from "../nooklab-grid/grid-view";
 
 export const CustomScrollbarsVirtualList = forwardRef<
   HTMLDivElement,
@@ -70,6 +71,7 @@ type ListContainerProps = {
   group?: GroupingKey;
   items: VirtualizedGrouping<Item>;
   compact?: boolean;
+  grid?: boolean;
   context?: Context;
   refresh: () => void;
   header?: JSX.Element;
@@ -93,6 +95,7 @@ function ListContainer(props: ListContainerProps) {
     header,
     button,
     compact,
+    grid,
     sx,
     Scroller,
     isSearching
@@ -198,6 +201,23 @@ function ListContainer(props: ListContainerProps) {
     }
   });
 
+  // Shared context between the virtualized list and NookLab grid view.
+  const listContext: ListContext = {
+    header,
+    items,
+    group,
+    refresh,
+    focusedGroupIndex,
+    selectItems: setSelectedItems,
+    scrollToIndex: listRef.current?.scrollToIndex,
+    focusGroup: setFocusedGroupIndex,
+    context,
+    compact,
+    grid,
+    onMouseUp,
+    isSearching
+  };
+
   return (
     <Flex
       variant="columnFill"
@@ -221,41 +241,49 @@ function ListContainer(props: ListContainerProps) {
           <Flex
             ref={listContainerRef}
             variant="columnFill"
+            sx={{ minHeight: 0 }}
             data-test-id={`${type}-list`}
           >
-            <Virtuoso
-              ref={listRef}
-              computeItemKey={(index) => items.key(index)}
-              defaultItemHeight={getListItemDefaultHeight(group, compact)}
-              totalCount={items.length}
-              onBlur={() => setFocusedGroupIndex(-1)}
-              onKeyDown={(e) => onKeyDown(e.nativeEvent)}
-              components={{
-                Scroller: Scroller || CustomScrollbarsVirtualList,
-                Item: VirtuosoItem,
-                Header: ListHeader
-              }}
-              increaseViewportBy={{ top: 200, bottom: 200 }}
-              context={{
-                header,
-                items,
-                group,
-                refresh,
-                focusedGroupIndex,
-                selectItems: setSelectedItems,
-                scrollToIndex: listRef.current?.scrollToIndex,
-                focusGroup: setFocusedGroupIndex,
-                context,
-                compact,
-                onMouseUp,
-                isSearching
-              }}
-              itemContent={(index, _data, context) =>
-                context ? (
-                  <ItemRenderer context={context} index={index} />
-                ) : null
-              }
-            />
+            {grid ? (
+              <NookLabGrid
+                type={type}
+                group={group}
+                items={items}
+                context={context}
+                refresh={refresh}
+                header={header}
+                isSearching={isSearching}
+                Scroller={Scroller || CustomScrollbarsVirtualList}
+                focusedGroupIndex={focusedGroupIndex}
+                focusGroup={setFocusedGroupIndex}
+                selectItems={setSelectedItems}
+                onMouseUp={onMouseUp}
+                renderItem={(index) => (
+                  <ItemRenderer context={listContext} index={index} />
+                )}
+              />
+            ) : (
+              <Virtuoso
+                ref={listRef}
+                computeItemKey={(index) => items.key(index)}
+                defaultItemHeight={getListItemDefaultHeight(group, compact)}
+                totalCount={items.length}
+                onBlur={() => setFocusedGroupIndex(-1)}
+                onKeyDown={(e) => onKeyDown(e.nativeEvent)}
+                components={{
+                  Scroller: Scroller || CustomScrollbarsVirtualList,
+                  Item: VirtuosoItem,
+                  Header: ListHeader
+                }}
+                increaseViewportBy={{ top: 200, bottom: 200 }}
+                context={listContext}
+                itemContent={(index, _data, context) =>
+                  context ? (
+                    <ItemRenderer context={context} index={index} />
+                  ) : null
+                }
+              />
+            )}
           </Flex>
         </>
       )}
@@ -304,6 +332,7 @@ type ListContext = {
   focusGroup: (index: number) => void;
   context?: Context;
   compact?: boolean;
+  grid?: boolean;
   isSearching?: boolean;
 
   onMouseUp: (e: MouseEvent, itemIndex: number) => void;
@@ -325,12 +354,13 @@ function ItemRenderer({
     scrollToIndex,
     context: itemContext,
     compact,
+    grid,
     isSearching
   } = context;
 
   const resolvedItem = useResolvedItem({ index, items });
   if (!resolvedItem || !resolvedItem.item) {
-    const placeholderData = getListItemPlaceholderData(group, compact);
+    const placeholderData = getListItemPlaceholderData(group, compact, grid);
     return (
       <div
         key="list-item-skeleton"
@@ -341,7 +371,15 @@ function ItemRenderer({
           paddingRight: placeholderData.padding[1],
           paddingBottom: placeholderData.padding[2],
           paddingLeft: placeholderData.padding[3],
-          gap: placeholderData.gap
+          gap: placeholderData.gap,
+          ...(grid
+            ? {
+                height: "100%",
+                boxSizing: "border-box",
+                borderRadius: 4,
+                border: "1px solid var(--border)"
+              }
+            : undefined)
         }}
       >
         {placeholderData.lines.map((line, index) => (
@@ -362,7 +400,7 @@ function ItemRenderer({
 
   return (
     <>
-      {resolvedItem.group && group ? (
+      {!grid && resolvedItem.group && group ? (
         <GroupHeader
           groupingKey={group}
           isSearching={isSearching}
@@ -403,8 +441,9 @@ function ItemRenderer({
         item={resolvedItem.item}
         data={resolvedItem.data}
         context={itemContext}
-        group={isSearching ? "search" : group}
+        group={grid ? undefined : isSearching ? "search" : group}
         compact={compact}
+        grid={grid}
       />
     </>
   );
