@@ -47,6 +47,7 @@ export default function TiptapEditorWrapper(props: {
       {tab.session?.locked ? null : (
         <EmotionEditorToolbarTheme>
           <div
+            className="theme-scope-editorToolbar"
             style={{
               display: props.settings.noToolbar ? "none" : "flex",
               flexDirection: "column",

@@ -69,7 +69,7 @@ export function ColorPicker(props: ColorPickerProps) {
   const inputRef = useRef<HTMLInputElement>(null);
   const [isPickerOpen, setIsPickerOpen] = useState(expanded || false);
   const [currentColor, setCurrentColor] = useState<string>(
-    colord(color || colors?.[0]).toHex()
+    colord(color || colors?.[0] || defaultColors?.[0] || "#dc2626").toHex()
   );
   const [deleteMode, setDeleteMode] = useState(false);
   const tColor = colord(currentColor);
@@ -132,7 +132,7 @@ export function ColorPicker(props: ColorPickerProps) {
               <Input
                 ref={inputRef}
                 variant={"clean"}
-                placeholder="#000000"
+                placeholder={(defaultColors?.[0] || "#DC2626").toUpperCase()}
                 spellCheck={false}
                 sx={{
                   my: 2,

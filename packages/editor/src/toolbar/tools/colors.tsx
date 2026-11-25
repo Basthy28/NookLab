@@ -43,6 +43,7 @@ type ColorToolProps = ToolProps & {
 
 export const DEFAULT_COLORS: Record<ColorType, string[]> = {
   background: [
+    "#e57373", // Red first (NookLab default)
     "#b0bec5", // Neutralized pink
     "#a1887f", // Neutralized purple
     "#9575cd", // Neutralized deep purple
@@ -55,10 +56,11 @@ export const DEFAULT_COLORS: Record<ColorType, string[]> = {
     "#aed581", // Neutralized light green
     "#dce775", // Neutralized lime
     "#fff176", // Neutralized yellow
-    "#ffd54f", // Neutralized amber
-    "#e57373" // Neutralized red
+    "#ffd54f" // Neutralized amber
   ],
   text: [
+    "#dc2626", // Red first (NookLab default)
+    "#f44336",
     "#e91e63",
     "#9c27b0",
     "#673ab7",
@@ -70,8 +72,7 @@ export const DEFAULT_COLORS: Record<ColorType, string[]> = {
     "#4caf50",
     "#8bc34a",
     "#cddc39",
-    "#ffc107",
-    "#f44336"
+    "#ffc107"
   ],
   border: [
     "#ef5350", // Crimson Red
@@ -128,6 +129,9 @@ export function ColorTool(props: ColorToolProps) {
     config.set(`custom_${cacheKey}`, colors);
   }, [cacheKey, colors]);
 
+  const fallbackColor = defaultColors[0];
+  const resolvedApplyColor = activeColor || fallbackColor;
+
   return (
     <SplitButton
       {...toolProps}
@@ -136,13 +140,17 @@ export function ColorTool(props: ColorToolProps) {
       sx={{
         mr: 0,
         bg: activeColor || "transparent",
+        boxShadow:
+          !activeColor && fallbackColor
+            ? `inset 0 -3px 0 0 ${fallbackColor}`
+            : undefined,
         ":hover:not(:disabled):not(:active)": {
           bg: tColor ? tColor.darken().toRgbString() : "transparent"
         }
       }}
       onOpen={toggle}
       toggled={isOpen}
-      onClick={() => onColorChange(activeColor)}
+      onClick={() => onColorChange(resolvedApplyColor)}
     >
       <PopupWrapper
         id={props.icon}

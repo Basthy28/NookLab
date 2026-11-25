@@ -12,6 +12,7 @@ import {
   ToolId
 } from "@notesnook/editor";
 import { strings } from "@notesnook/intl";
+import { useThemeColors } from "@notesnook/theme";
 import React from "react";
 import {
   NOOKLAB_AUTOCORRECT_ICON,
@@ -26,6 +27,9 @@ type DirectToolButtonProps = {
   title: string;
   iconPath: string;
   active: boolean;
+  iconColor: string;
+  activeIconColor: string;
+  activeBackground: string;
   onClick: () => void;
 };
 
@@ -34,6 +38,9 @@ function DirectToolButton({
   title,
   iconPath,
   active,
+  iconColor,
+  activeIconColor,
+  activeBackground,
   onClick
 }: DirectToolButtonProps) {
   return (
@@ -55,19 +62,20 @@ function DirectToolButton({
         alignItems: "center",
         justifyContent: "center",
         cursor: "pointer",
-        backgroundColor: active ? "var(--background-selected)" : "transparent"
+        backgroundColor: active ? activeBackground : "transparent"
       }}
     >
       <MdiIcon
         path={iconPath}
         size="20px"
-        color={active ? "var(--icon-selected)" : "var(--icon)"}
+        color={active ? activeIconColor : iconColor}
       />
     </button>
   );
 }
 
 export function NookLabToolbarRow({ editor }: { editor: Editor }) {
+  const { colors } = useThemeColors("editorToolbar");
   const autocorrectEnabled = useAutocorrectEnabled();
   if (!editor.isEditable) return null;
 
@@ -76,7 +84,14 @@ export function NookLabToolbarRow({ editor }: { editor: Editor }) {
   const HighlightTool = findTool("highlight");
   const highlightDef = getToolDefinition("highlight");
 
-  const directActions: DirectToolButtonProps[] = [
+  const iconColor = colors.primary.icon;
+  const activeIconColor = colors.selected.icon || colors.primary.accent;
+  const activeBackground = colors.selected.background;
+
+  const directActions: Omit<
+    DirectToolButtonProps,
+    "iconColor" | "activeIconColor" | "activeBackground"
+  >[] = [
     {
       id: "tool-nooklab-horizontal-rule",
       title: strings.horizontalRule(),
@@ -102,7 +117,7 @@ export function NookLabToolbarRow({ editor }: { editor: Editor }) {
 
   return (
     <div
-      className="nooklab-toolbar-row"
+      className="nooklab-toolbar-row theme-scope-editorToolbar"
       data-test-id="nooklab-toolbar-row"
       style={{
         display: "flex",
@@ -110,8 +125,9 @@ export function NookLabToolbarRow({ editor }: { editor: Editor }) {
         flexWrap: "nowrap",
         overflowX: "auto",
         minHeight: "36px",
-        backgroundColor: "var(--background)",
-        borderTop: "1px solid var(--separator)"
+        backgroundColor: colors.primary.background,
+        color: colors.primary.paragraph,
+        borderTop: `1px solid ${colors.primary.separator || colors.primary.border}`
       }}
     >
       <div
@@ -122,7 +138,7 @@ export function NookLabToolbarRow({ editor }: { editor: Editor }) {
           padding: "2px 4px",
           flexShrink: 0,
           alignItems: "center",
-          borderRight: "1px solid var(--separator)"
+          borderRight: `1px solid ${colors.primary.separator || colors.primary.border}`
         }}
       >
         <TextColorTool
@@ -147,7 +163,13 @@ export function NookLabToolbarRow({ editor }: { editor: Editor }) {
         }}
       >
         {directActions.map((action) => (
-          <DirectToolButton key={action.id} {...action} />
+          <DirectToolButton
+            key={action.id}
+            {...action}
+            iconColor={iconColor}
+            activeIconColor={activeIconColor}
+            activeBackground={activeBackground}
+          />
         ))}
         <NookLabSheetTool editor={editor} />
       </div>

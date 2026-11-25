@@ -12,6 +12,7 @@ import {
 } from "@mdi/js";
 import MdiIcon from "@mdi/react";
 import type { Editor } from "@notesnook/editor";
+import { useThemeColors } from "@notesnook/theme";
 import React, { useMemo, useState } from "react";
 import {
   copyAllCleanServiceSheet,
@@ -35,6 +36,7 @@ const preventFocusLoss = (e: React.MouseEvent<HTMLElement>) => {
 };
 
 export function NookLabSheetTool({ editor }: { editor: Editor }) {
+  const { colors } = useThemeColors("editorToolbar");
   const tab = useTabContext();
   const [isOpen, setIsOpen] = useState(false);
   const [settings, setSettings] = useState<ServiceSheetSettings>(() =>
@@ -70,6 +72,11 @@ export function NookLabSheetTool({ editor }: { editor: Editor }) {
     updateSettings({ fontSizePt: nextPt });
   };
 
+  const iconColor = colors.primary.icon;
+  const activeIconColor = colors.selected.icon || colors.primary.accent;
+  const separatorColor = colors.primary.separator || colors.primary.border;
+  const mutedTextColor = colors.secondary.paragraph || colors.primary.icon;
+
   return (
     <>
       <button
@@ -90,31 +97,30 @@ export function NookLabSheetTool({ editor }: { editor: Editor }) {
           alignItems: "center",
           gap: "2px",
           cursor: "pointer",
-          backgroundColor: isOpen
-            ? "var(--background-selected)"
-            : "transparent"
+          backgroundColor: isOpen ? colors.selected.background : "transparent"
         }}
       >
         <MdiIcon
           path={mdiFileDocumentOutline}
           size="20px"
-          color={isOpen ? "var(--icon-selected)" : "var(--icon)"}
+          color={isOpen ? activeIconColor : iconColor}
         />
         <MdiIcon
           path={mdiChevronDown}
           size="13px"
-          color={isOpen ? "var(--icon-selected)" : "var(--icon)"}
+          color={isOpen ? activeIconColor : iconColor}
         />
       </button>
 
       {isOpen ? (
         <div
+          className="theme-scope-editorToolbar"
           onClick={() => setIsOpen(false)}
           style={{
             position: "fixed",
             inset: 0,
             zIndex: 9999,
-            backgroundColor: "rgba(0, 0, 0, 0.35)",
+            backgroundColor: "rgba(0, 0, 0, 0.45)",
             display: "flex",
             alignItems: "flex-end",
             justifyContent: "center",
@@ -132,11 +138,11 @@ export function NookLabSheetTool({ editor }: { editor: Editor }) {
               display: "flex",
               flexDirection: "column",
               gap: "10px",
-              backgroundColor: "var(--background)",
-              border: "1px solid var(--border)",
+              backgroundColor: colors.primary.background,
+              border: `1px solid ${colors.primary.border}`,
               borderRadius: "12px",
-              boxShadow: "0 -4px 24px rgba(0, 0, 0, 0.3)",
-              color: "var(--paragraph)"
+              boxShadow: "0 -4px 24px rgba(0, 0, 0, 0.35)",
+              color: colors.primary.paragraph
             }}
           >
             <div
@@ -151,13 +157,13 @@ export function NookLabSheetTool({ editor }: { editor: Editor }) {
                 <MdiIcon
                   path={mdiFileDocumentOutline}
                   size="18px"
-                  color="var(--accent)"
+                  color={colors.primary.accent}
                 />
                 <span
                   style={{
                     fontSize: "14px",
                     fontWeight: 600,
-                    color: "var(--heading)"
+                    color: colors.primary.heading
                   }}
                 >
                   Service Sheet
@@ -170,11 +176,11 @@ export function NookLabSheetTool({ editor }: { editor: Editor }) {
                     style={{
                       padding: "2px 8px",
                       borderRadius: "999px",
-                      backgroundColor: "var(--background-secondary)",
-                      border: "1px solid var(--border)",
+                      backgroundColor: colors.secondary.background,
+                      border: `1px solid ${colors.primary.border}`,
                       fontSize: "11px",
                       fontWeight: 600,
-                      color: "var(--paragraph)"
+                      color: colors.primary.paragraph
                     }}
                   >
                     {preview.groupCount > 1
@@ -193,7 +199,7 @@ export function NookLabSheetTool({ editor }: { editor: Editor }) {
                     cursor: "pointer"
                   }}
                 >
-                  <MdiIcon path={mdiClose} size="16px" color="var(--icon)" />
+                  <MdiIcon path={mdiClose} size="16px" color={iconColor} />
                 </button>
               </div>
             </div>
@@ -205,16 +211,16 @@ export function NookLabSheetTool({ editor }: { editor: Editor }) {
                   flexDirection: "column",
                   gap: "4px",
                   padding: "8px 10px",
-                  backgroundColor: "var(--background-secondary)",
+                  backgroundColor: colors.secondary.background,
                   borderRadius: "8px",
-                  border: "1px solid var(--border)"
+                  border: `1px solid ${colors.primary.border}`
                 }}
               >
                 <div style={{ display: "flex", gap: "6px", alignItems: "center" }}>
                   <span
                     style={{
                       fontSize: "11px",
-                      color: "var(--icon)",
+                      color: mutedTextColor,
                       minWidth: "36px"
                     }}
                   >
@@ -224,7 +230,7 @@ export function NookLabSheetTool({ editor }: { editor: Editor }) {
                     style={{
                       fontSize: "12px",
                       fontWeight: 600,
-                      color: "var(--paragraph)",
+                      color: colors.primary.paragraph,
                       overflow: "hidden",
                       textOverflow: "ellipsis",
                       whiteSpace: "nowrap"
@@ -237,7 +243,7 @@ export function NookLabSheetTool({ editor }: { editor: Editor }) {
                   <span
                     style={{
                       fontSize: "11px",
-                      color: "var(--icon)",
+                      color: mutedTextColor,
                       minWidth: "36px"
                     }}
                   >
@@ -246,7 +252,7 @@ export function NookLabSheetTool({ editor }: { editor: Editor }) {
                   <span
                     style={{
                       fontSize: "12px",
-                      color: "var(--paragraph)",
+                      color: colors.primary.paragraph,
                       overflow: "hidden",
                       textOverflow: "ellipsis",
                       whiteSpace: "nowrap"
@@ -259,7 +265,7 @@ export function NookLabSheetTool({ editor }: { editor: Editor }) {
             ) : (
               <span
                 style={{
-                  color: "var(--icon)",
+                  color: mutedTextColor,
                   fontSize: "12px",
                   padding: "4px 0"
                 }}
@@ -289,15 +295,15 @@ export function NookLabSheetTool({ editor }: { editor: Editor }) {
                   borderRadius: "8px",
                   border: "none",
                   cursor: "pointer",
-                  backgroundColor: "var(--accent)",
-                  color: "var(--accentForeground)",
+                  backgroundColor: colors.primary.accent,
+                  color: colors.primary.accentForeground,
                   opacity: !preview || preview.lineCount === 0 ? 0.5 : 1
                 }}
               >
                 <MdiIcon
                   path={mdiContentCopy}
                   size="16px"
-                  color="var(--accentForeground)"
+                  color={colors.primary.accentForeground}
                 />
                 <span>Copy 1 page (Word / Text)</span>
               </button>
@@ -319,14 +325,14 @@ export function NookLabSheetTool({ editor }: { editor: Editor }) {
                   padding: "8px",
                   fontSize: "12px",
                   borderRadius: "8px",
-                  border: "1px solid var(--border)",
+                  border: `1px solid ${colors.primary.border}`,
                   cursor: "pointer",
-                  backgroundColor: "var(--background-secondary)",
-                  color: "var(--paragraph)",
+                  backgroundColor: colors.secondary.background,
+                  color: colors.primary.paragraph,
                   opacity: !preview || preview.lineCount === 0 ? 0.5 : 1
                 }}
               >
-                <MdiIcon path={mdiContentCopy} size="15px" color="var(--icon)" />
+                <MdiIcon path={mdiContentCopy} size="15px" color={iconColor} />
                 <span>Copy all clean</span>
               </button>
             </div>
@@ -337,16 +343,16 @@ export function NookLabSheetTool({ editor }: { editor: Editor }) {
                 flexDirection: "column",
                 gap: "8px",
                 paddingTop: "8px",
-                borderTop: "1px solid var(--separator)"
+                borderTop: `1px solid ${separatorColor}`
               }}
             >
               <div
                 style={{
                   display: "flex",
-                  backgroundColor: "var(--background-secondary)",
+                  backgroundColor: colors.secondary.background,
                   padding: "3px",
                   borderRadius: "8px",
-                  border: "1px solid var(--border)",
+                  border: `1px solid ${colors.primary.border}`,
                   gap: "2px"
                 }}
               >
@@ -366,10 +372,12 @@ export function NookLabSheetTool({ editor }: { editor: Editor }) {
                         borderRadius: "6px",
                         border: "none",
                         cursor: "pointer",
-                        backgroundColor: active ? "var(--accent)" : "transparent",
+                        backgroundColor: active
+                          ? colors.primary.accent
+                          : "transparent",
                         color: active
-                          ? "var(--accentForeground)"
-                          : "var(--paragraph)"
+                          ? colors.primary.accentForeground
+                          : colors.primary.paragraph
                       }}
                     >
                       {opt.label}
@@ -386,7 +394,7 @@ export function NookLabSheetTool({ editor }: { editor: Editor }) {
                   gap: "8px"
                 }}
               >
-                <span style={{ fontSize: "12px", color: "var(--icon)" }}>
+                <span style={{ fontSize: "12px", color: mutedTextColor }}>
                   {settings.mode === "lines" ? "Max lines" : "Font size"}
                 </span>
                 <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
@@ -396,14 +404,14 @@ export function NookLabSheetTool({ editor }: { editor: Editor }) {
                     onClick={() => adjustStep(-1)}
                     style={{
                       padding: "4px",
-                      border: "1px solid var(--border)",
+                      border: `1px solid ${colors.primary.border}`,
                       borderRadius: "6px",
                       display: "inline-flex",
-                      backgroundColor: "var(--background-secondary)",
+                      backgroundColor: colors.secondary.background,
                       cursor: "pointer"
                     }}
                   >
-                    <MdiIcon path={mdiMinus} size="14px" color="var(--icon)" />
+                    <MdiIcon path={mdiMinus} size="14px" color={iconColor} />
                   </button>
                   <span
                     style={{
@@ -411,7 +419,7 @@ export function NookLabSheetTool({ editor }: { editor: Editor }) {
                       fontWeight: 600,
                       minWidth: "46px",
                       textAlign: "center",
-                      color: "var(--paragraph)"
+                      color: colors.primary.paragraph
                     }}
                   >
                     {settings.mode === "lines"
@@ -424,14 +432,14 @@ export function NookLabSheetTool({ editor }: { editor: Editor }) {
                     onClick={() => adjustStep(1)}
                     style={{
                       padding: "4px",
-                      border: "1px solid var(--border)",
+                      border: `1px solid ${colors.primary.border}`,
                       borderRadius: "6px",
                       display: "inline-flex",
-                      backgroundColor: "var(--background-secondary)",
+                      backgroundColor: colors.secondary.background,
                       cursor: "pointer"
                     }}
                   >
-                    <MdiIcon path={mdiPlus} size="14px" color="var(--icon)" />
+                    <MdiIcon path={mdiPlus} size="14px" color={iconColor} />
                   </button>
                 </div>
               </div>
@@ -443,13 +451,14 @@ export function NookLabSheetTool({ editor }: { editor: Editor }) {
                     alignItems: "center",
                     gap: "8px",
                     fontSize: "12px",
-                    color: "var(--paragraph)",
+                    color: colors.primary.paragraph,
                     cursor: "pointer"
                   }}
                 >
                   <input
                     type="checkbox"
                     checked={settings.wholeBlocksOnly}
+                    style={{ accentColor: colors.primary.accent }}
                     onChange={(e) =>
                       updateSettings({ wholeBlocksOnly: e.target.checked })
                     }
@@ -462,13 +471,14 @@ export function NookLabSheetTool({ editor }: { editor: Editor }) {
                     alignItems: "center",
                     gap: "8px",
                     fontSize: "12px",
-                    color: "var(--paragraph)",
+                    color: colors.primary.paragraph,
                     cursor: "pointer"
                   }}
                 >
                   <input
                     type="checkbox"
                     checked={settings.removeEmptyLines}
+                    style={{ accentColor: colors.primary.accent }}
                     onChange={(e) =>
                       updateSettings({ removeEmptyLines: e.target.checked })
                     }
