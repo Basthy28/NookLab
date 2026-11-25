@@ -72,6 +72,7 @@ import {
   handleAutocorrectKeyDown,
   handleAutocorrectUpdate
 } from "../../common/nooklab-autocorrect";
+import { handleCompactCopyKeyDown } from "../../common/nooklab-service-sheet";
 import { EDITOR_ZOOM } from "./common";
 import { ScrollContainer } from "@notesnook/ui";
 import { showFeatureNotAllowedToast } from "../../common/toasts";
@@ -252,6 +253,7 @@ function TipTap(props: TipTapProps) {
         handleKeyDown(view, event) {
           if (handleNumpadEditorKeyDown(view, event)) return true;
           if (handleAutocorrectKeyDown(view, event)) return true;
+          if (handleCompactCopyKeyDown(editor as Editor, event)) return true;
           if ((event.ctrlKey || event.metaKey) && event.key === "s") {
             event.preventDefault();
             onChange?.(
