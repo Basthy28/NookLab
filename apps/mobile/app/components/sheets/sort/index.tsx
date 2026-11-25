@@ -46,6 +46,18 @@ import { Pressable } from "../../ui/pressable";
 import Heading from "../../ui/typography/heading";
 import Paragraph from "../../ui/typography/paragraph";
 import Navigation from "../../../services/navigation";
+import SettingsService from "../../../services/settings";
+import { useNotesListMode } from "../../../hooks/use-is-compact-mode-enabled";
+const NOTE_VIEW_MODES: Array<{
+  id: "grid" | "normal" | "compact";
+  label: string;
+  icon: string;
+}> = [
+  { id: "grid", label: "Grid", icon: "view-grid-outline" },
+  { id: "normal", label: "Detailed", icon: "view-agenda-outline" },
+  { id: "compact", label: "Compact", icon: "view-list" }
+];
+
 const Sort = ({
   dataType,
   screen,
@@ -62,6 +74,7 @@ const Sort = ({
   groupId?: string;
 }) => {
   const { colors } = useThemeColors();
+  const notesListMode = useNotesListMode();
 
   const [groupOptions, setGroupOptions] = useState(
     getGroupOptions(groupType, groupId, type)
@@ -119,6 +132,65 @@ const Sort = ({
         gap: DefaultAppStyles.GAP_SMALL
       }}
     >
+      {dataType === "note" ? (
+        <View
+          style={{
+            paddingHorizontal: DefaultAppStyles.GAP,
+            paddingBottom: DefaultAppStyles.GAP_SMALL,
+            gap: DefaultAppStyles.GAP_SMALL
+          }}
+        >
+          <Heading size={AppFontSize.lg}>View</Heading>
+          <View
+            style={{
+              flexDirection: "row",
+              gap: DefaultAppStyles.GAP_SMALL
+            }}
+          >
+            {NOTE_VIEW_MODES.map((mode) => {
+              const active = notesListMode === mode.id;
+              return (
+                <Pressable
+                  key={mode.id}
+                  type={active ? "selected" : "secondary"}
+                  onPress={() => {
+                    SettingsService.set({ notesListMode: mode.id });
+                  }}
+                  style={{
+                    flex: 1,
+                    flexDirection: "row",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    gap: 6,
+                    paddingVertical: 8,
+                    borderRadius: 8,
+                    borderWidth: 1,
+                    borderColor: active
+                      ? colors.selected.border
+                      : colors.primary.border
+                  }}
+                >
+                  <AppIcon
+                    name={mode.icon}
+                    size={AppFontSize.sm}
+                    color={active ? colors.selected.accent : colors.primary.icon}
+                  />
+                  <Paragraph
+                    size={AppFontSize.xs}
+                    color={
+                      active ? colors.selected.accent : colors.primary.paragraph
+                    }
+                    style={{ fontWeight: active ? "700" : "500" }}
+                  >
+                    {mode.label}
+                  </Paragraph>
+                </Pressable>
+              );
+            })}
+          </View>
+        </View>
+      ) : null}
+
       <View
         style={{
           flexDirection: "row",

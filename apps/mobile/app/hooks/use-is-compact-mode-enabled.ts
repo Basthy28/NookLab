@@ -44,3 +44,7 @@ export function useIsCompactModeEnabled(dataType: ItemType) {
 
   return listMode === "compact";
 }
+
+export function useNotesListMode(): "normal" | "compact" | "grid" {
+  return useSettingStore((state) => state.settings.notesListMode || "grid");
+}

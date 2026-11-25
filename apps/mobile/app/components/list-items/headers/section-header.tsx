@@ -28,7 +28,10 @@ import { strings } from "@notesnook/intl";
 import { useThemeColors } from "@notesnook/theme";
 import React from "react";
 import { View } from "react-native";
-import { useIsCompactModeEnabled } from "../../../hooks/use-is-compact-mode-enabled";
+import {
+  useIsCompactModeEnabled,
+  useNotesListMode
+} from "../../../hooks/use-is-compact-mode-enabled";
 import { presentSheet } from "../../../services/event-manager";
 import SettingsService from "../../../services/settings";
 import { RouteName } from "../../../stores/use-navigation-store";
@@ -74,6 +77,8 @@ export const SectionHeader = React.memo<
     const isCompactModeEnabled = useIsCompactModeEnabled(
       dataType as "note" | "notebook" | "searchResult"
     );
+    const notesListMode = useNotesListMode();
+    const isNoteView = dataType === "note";
 
     return (
       <View
@@ -180,15 +185,31 @@ export const SectionHeader = React.memo<
                   testID="icon-compact-mode"
                   color={colors.secondary.icon}
                   name={
-                    isCompactModeEnabled ? "view-list" : "view-list-outline"
+                    isNoteView
+                      ? notesListMode === "grid"
+                        ? "view-grid-outline"
+                        : notesListMode === "compact"
+                          ? "view-list"
+                          : "view-agenda-outline"
+                      : isCompactModeEnabled
+                        ? "view-list"
+                        : "view-list-outline"
                   }
                   onPress={() => {
+                    if (isNoteView) {
+                      const nextMode =
+                        notesListMode === "grid"
+                          ? "normal"
+                          : notesListMode === "normal"
+                            ? "compact"
+                            : "grid";
+                      SettingsService.set({ notesListMode: nextMode });
+                      return;
+                    }
                     SettingsService.set({
                       [dataType === "notebook"
                         ? "notebooksListMode"
-                        : dataType === "searchResult"
-                          ? "searchListMode"
-                          : "notesListMode"]: !isCompactModeEnabled
+                        : "searchListMode"]: !isCompactModeEnabled
                         ? "compact"
                         : "normal"
                     });
@@ -213,6 +234,7 @@ export const SectionHeader = React.memo<
     );
   },
   (prev, next) => {
+    if (prev.index !== next.index) return false;
     if (prev.item.title !== next.item.title) return false;
     if (prev.itemCount !== next.itemCount) return false;
     if (prev.groupOptions?.groupBy !== next.groupOptions.groupBy) return false;

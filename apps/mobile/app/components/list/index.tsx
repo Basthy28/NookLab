@@ -25,7 +25,7 @@ import {
 } from "@notesnook/core";
 import { useThemeColors } from "@notesnook/theme";
 import { LegendList, LegendListRenderItemProps } from "@legendapp/list";
-import React, { useEffect, useRef } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import {
   NativeScrollEvent,
   NativeSyntheticEvent,
@@ -41,6 +41,14 @@ import { useSettingStore } from "../../stores/use-setting-store";
 import { eScrollEvent } from "../../utils/events";
 import { fluidTabsRef } from "../../utils/global-refs";
 import { Header } from "../list-items/headers/header";
+import {
+  buildMobileGridRows,
+  MobileGridGroupInput,
+  MobileGridRow,
+  NOOKLAB_GRID_CARD_HEIGHT,
+  NOOKLAB_GRID_ROW_GAP
+} from "../nooklab-grid/grid-helpers";
+import { GridRow } from "../nooklab-grid/grid-row";
 import { Empty, PlaceholderData } from "./empty";
 import { ListItemWrapper } from "./list-item.wrapper";
 import { ScrollView } from "react-native-actions-sheet";
@@ -75,12 +83,67 @@ export default function List(props: ListProps) {
     state.settings.notebooksListMode
   ]);
 
+  const isGridModeEnabled =
+    props.dataType === "note" &&
+    (notesListMode === "grid" || !notesListMode) &&
+    !props.isRenderedInActionSheet;
+
   const isCompactModeEnabled =
     (props.dataType === "note" && notesListMode === "compact") ||
-    props.dataType === "notebook" ||
-    notebooksListMode === "compact";
+    (props.dataType === "notebook" && notebooksListMode === "compact");
 
   const groupOptions = useGroupOptions(props.groupType, props.id, props.type);
+  const [gridGroups, setGridGroups] = useState<MobileGridGroupInput[] | null>(
+    null
+  );
+
+  useEffect(() => {
+    let cancelled = false;
+    if (!isGridModeEnabled || !props.data?.groups || props.data.length === 0) {
+      setGridGroups(null);
+      return;
+    }
+
+    props.data
+      .groups()
+      .then((groups) => {
+        if (!cancelled) setGridGroups(groups as MobileGridGroupInput[]);
+      })
+      .catch(() => {
+        if (!cancelled) setGridGroups([]);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [isGridModeEnabled, props.data]);
+
+  const gridRows = useMemo(() => {
+    if (!isGridModeEnabled) return [];
+    return buildMobileGridRows(props.data?.length || 0, gridGroups);
+  }, [isGridModeEnabled, props.data, gridGroups]);
+
+  const gridScrollRef = useMemo(
+    () => ({
+      get current() {
+        const list = scrollRef.current as any;
+        if (!list) return null;
+        return {
+          ...list,
+          scrollToIndex: (opts: { index: number; animated?: boolean }) => {
+            const rowIndex = gridRows.findIndex(
+              (r) => r.kind === "section-header" && r.itemIndex === opts.index
+            );
+            list.scrollToIndex?.({
+              ...opts,
+              index: rowIndex >= 0 ? rowIndex : 0
+            });
+          }
+        };
+      }
+    }),
+    [gridRows]
+  );
 
   const _onRefresh = async () => {
     Sync.run("global", false, "full", () => {
@@ -89,14 +152,38 @@ export default function List(props: ListProps) {
   };
 
   const getItemType = React.useCallback(
-    (item: number | boolean, index: number) => {
+    (item: MobileGridRow | boolean, index: number) => {
+      if (isGridModeEnabled && typeof item === "object" && item !== null) {
+        return item.kind;
+      }
       return props.data?.type(index);
     },
-    [props.data]
+    [isGridModeEnabled, props.data]
   );
 
   const renderItem = React.useCallback(
     (itemProps: LegendListRenderItemProps<any, any>) => {
+      if (
+        isGridModeEnabled &&
+        itemProps.item &&
+        typeof itemProps.item === "object" &&
+        "kind" in itemProps.item
+      ) {
+        return (
+          <GridRow
+            row={itemProps.item as MobileGridRow}
+            items={props.data}
+            group={props.groupType as GroupingKey}
+            groupId={props.id}
+            type={props.type}
+            groupOptions={groupOptions}
+            renderedInRoute={props.renderedInRoute}
+            customAccentColor={props.customAccentColor}
+            scrollRef={gridScrollRef}
+          />
+        );
+      }
+
       return (
         <ListItemWrapper
           index={itemProps.index}
@@ -114,6 +201,7 @@ export default function List(props: ListProps) {
       );
     },
     [
+      isGridModeEnabled,
       props.isRenderedInActionSheet,
       props.data,
       props.id,
@@ -155,13 +243,19 @@ export default function List(props: ListProps) {
         }}
       >
         <LegendList
+          key={isGridModeEnabled ? "nooklab-grid" : "nooklab-list"}
           ref={scrollRef}
           contentContainerStyle={{
             flexGrow: 1
           }}
-          extraData={props.data}
+          extraData={isGridModeEnabled ? gridRows : props.data}
           testID={notesnook.list.id}
-          data={props.data?.placeholders || []}
+          data={isGridModeEnabled ? gridRows : props.data?.placeholders || []}
+          keyExtractor={(item: MobileGridRow | boolean, index: number) =>
+            isGridModeEnabled && typeof item === "object" && item !== null
+              ? item.key
+              : `item-${index}`
+          }
           renderScrollComponent={
             props.isRenderedInActionSheet
               ? (props) => <ScrollView {...props} />
@@ -172,7 +266,13 @@ export default function List(props: ListProps) {
           nestedScrollEnabled={true}
           onMomentumScrollEnd={onMomentumScrollEnd}
           getItemType={getItemType}
-          estimatedItemSize={isCompactModeEnabled ? 60 : 120}
+          estimatedItemSize={
+            isGridModeEnabled
+              ? NOOKLAB_GRID_CARD_HEIGHT + NOOKLAB_GRID_ROW_GAP
+              : isCompactModeEnabled
+                ? 60
+                : 120
+          }
           directionalLockEnabled={true}
           keyboardShouldPersistTaps="always"
           keyboardDismissMode="interactive"
