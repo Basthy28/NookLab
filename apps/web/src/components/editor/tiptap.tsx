@@ -67,6 +67,7 @@ import {
   filterPromotedTools,
   NookLabToolbarRow
 } from "./nooklab-toolbar-row";
+import { handleNumpadEditorKeyDown } from "../../common/nooklab-numpad";
 import { EDITOR_ZOOM } from "./common";
 import { ScrollContainer } from "@notesnook/ui";
 import { showFeatureNotAllowedToast } from "../../common/toasts";
@@ -244,7 +245,8 @@ function TipTap(props: TipTapProps) {
   const tiptapOptions = useMemo<Partial<TiptapOptions>>(() => {
     return {
       editorProps: {
-        handleKeyDown(_, event) {
+        handleKeyDown(view, event) {
+          if (handleNumpadEditorKeyDown(view, event)) return true;
           if ((event.ctrlKey || event.metaKey) && event.key === "s") {
             event.preventDefault();
             onChange?.(

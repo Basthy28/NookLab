@@ -34,6 +34,7 @@ import { AppEventManager, AppEvents } from "./common/app-events";
 import { db } from "./common/db";
 import { EVENTS, parseInternalLink } from "@notesnook/core";
 import { registerKeyMap } from "./common/key-map";
+import { installNookLabNumpadGuard } from "./common/nooklab-numpad";
 import { updateStatus, removeStatus, getStatus } from "./hooks/use-status";
 import { hashNavigate, navigate } from "./navigation";
 import { desktop } from "./common/desktop-bridge";
@@ -184,7 +185,9 @@ export default function AppEffects() {
     });
 
     registerKeyMap();
+    const uninstallNumpadGuard = installNookLabNumpadGuard();
     return () => {
+      uninstallNumpadGuard();
       [
         ...fileDownloadEvents,
         ...fileUploadEvents,
