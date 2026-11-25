@@ -38,11 +38,12 @@ import {
 import { useObserver } from "../../hooks/use-observer.js";
 import { Attachment, ImageAlignmentOptions } from "../attachment/index.js";
 import { DataURL } from "@notesnook/common";
+import { buildImageGalleryPayload } from "./gallery.js";
 
 export function ImageComponent(
   props: ReactNodeViewProps<Partial<ImageAttributes>>
 ) {
-  const { editor, node, selected } = props;
+  const { editor, node, selected, getPos } = props;
   const { src, alt, title, textDirection, hash, aspectRatio, mime, progress } =
     node.attrs;
   const [bloburl, setBloburl] = useState<string | undefined>(
@@ -53,11 +54,129 @@ export function ImageComponent(
     height: number;
   } | null>(null);
   const controllerRef = useRef(new AbortController());
+  const isMobile = useToolbarStore((store) => store.isMobile);
+  const lastPreviewAtRef = useRef(0);
 
   const { inView, ref: imageRef } = useObserver<HTMLImageElement>({
     threshold: 0.2,
     once: true
   });
+
+  const openPreview = () => {
+    const { hash, src } = node.attrs;
+    if (!hash && !src) return;
+    const now = Date.now();
+    if (now - lastPreviewAtRef.current < 350) return;
+    lastPreviewAtRef.current = now;
+
+    let pos: number | undefined;
+    try {
+      pos = typeof getPos === "function" ? getPos() : undefined;
+    } catch {
+      pos = undefined;
+    }
+
+    if (isMobile) {
+      if (document.activeElement instanceof HTMLElement) {
+        document.activeElement.blur();
+      }
+      editor.commands.blur();
+    }
+
+    editor.storage.previewAttachment?.(
+      buildImageGalleryPayload(editor, node.attrs, pos)
+    );
+  };
+
+  const openPreviewRef = useRef(openPreview);
+  openPreviewRef.current = openPreview;
+
+  useEffect(() => {
+    if (!isMobile) return;
+    const imgEl = imageRef.current;
+    if (!imgEl) return;
+
+    let startX = 0;
+    let startY = 0;
+    let startTime = 0;
+    let moved = false;
+    let longPressed = false;
+    let longPressTimer: ReturnType<typeof setTimeout> | null = null;
+
+    const clearTimer = () => {
+      if (longPressTimer) {
+        clearTimeout(longPressTimer);
+        longPressTimer = null;
+      }
+    };
+
+    const onTouchStart = (e: TouchEvent) => {
+      if (e.touches.length !== 1) {
+        moved = true;
+        clearTimer();
+        return;
+      }
+      const touch = e.touches[0];
+      startX = touch.clientX;
+      startY = touch.clientY;
+      startTime = Date.now();
+      moved = false;
+      longPressed = false;
+
+      clearTimer();
+      longPressTimer = setTimeout(() => {
+        longPressed = true;
+        try {
+          const pos = typeof getPos === "function" ? getPos() : undefined;
+          if (typeof pos === "number") {
+            editor.chain().setNodeSelection(pos).run();
+          }
+        } catch {
+          /* ignore */
+        }
+      }, 480);
+    };
+
+    const onTouchMove = (e: TouchEvent) => {
+      if (e.touches.length !== 1) {
+        moved = true;
+        clearTimer();
+        return;
+      }
+      const touch = e.touches[0];
+      if (
+        Math.abs(touch.clientX - startX) > 10 ||
+        Math.abs(touch.clientY - startY) > 10
+      ) {
+        moved = true;
+        clearTimer();
+      }
+    };
+
+    const onTouchEnd = (e: TouchEvent) => {
+      clearTimer();
+      if (moved || longPressed) return;
+      if (Date.now() - startTime > 450) return;
+
+      // Prevent Android WebView from synthesizing mousedown/click onto contenteditable
+      if (e.cancelable) e.preventDefault();
+      e.stopPropagation();
+      openPreviewRef.current();
+    };
+
+    imgEl.addEventListener("touchstart", onTouchStart, { passive: true });
+    imgEl.addEventListener("touchmove", onTouchMove, { passive: true });
+    imgEl.addEventListener("touchend", onTouchEnd, { passive: false });
+    imgEl.addEventListener("touchcancel", clearTimer, { passive: true });
+
+    return () => {
+      clearTimer();
+      imgEl.removeEventListener("touchstart", onTouchStart);
+      imgEl.removeEventListener("touchmove", onTouchMove);
+      imgEl.removeEventListener("touchend", onTouchEnd);
+      imgEl.removeEventListener("touchcancel", clearTimer);
+    };
+  }, [isMobile, bloburl, src, editor, getPos, imageRef]);
 
   const dom = editor.view.dom;
 
@@ -298,16 +417,21 @@ export function ImageComponent(
               borderRadius: "default",
               ...(isSVG ? { bg: "transparent" } : {})
             }}
+            onMouseDown={(e) => {
+              if (isMobile) {
+                e.preventDefault();
+                e.stopPropagation();
+              }
+            }}
+            onClick={(e) => {
+              if (!isMobile) return;
+              e.preventDefault();
+              e.stopPropagation();
+              openPreview();
+            }}
             onDoubleClick={() => {
-              const { hash, filename, mime, size } = node.attrs;
-              if (!!hash && !!filename && !!mime && !!size)
-                editor.storage.previewAttachment?.({
-                  type: "image",
-                  hash,
-                  filename,
-                  mime,
-                  size
-                });
+              if (isMobile) return;
+              openPreview();
             }}
             onLoad={async function onLoad() {
               if (!imageRef.current) return;

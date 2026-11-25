@@ -47,6 +47,8 @@ export type ImageAttachment = BaseAttachment & {
   height?: number;
   src?: string;
   aspectRatio?: number;
+  galleryImages?: ImageAttachment[];
+  currentIndex?: number;
 } & ImageAlignmentOptions;
 
 export type ImageAlignmentOptions = {

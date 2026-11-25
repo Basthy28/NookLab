@@ -24,6 +24,7 @@ import { useToolbarLocation } from "../stores/toolbar-store.js";
 import { findSelectedNode } from "../../utils/prosemirror.js";
 import { Attachment } from "../../extensions/attachment/index.js";
 import { Editor } from "../../types.js";
+import { buildImageGalleryPayload } from "../../extensions/image/gallery.js";
 
 export function AttachmentSettings(props: ToolProps) {
   const { editor } = props;
@@ -81,6 +82,13 @@ export function PreviewAttachment(props: ToolProps) {
           findSelectedNode(editor, "image");
 
         const attachment = (attachmentNode?.attrs || {}) as Attachment;
+        if (attachmentNode?.type.name === "image") {
+          const selFrom = editor.state.selection.from;
+          editor.storage.previewAttachment?.(
+            buildImageGalleryPayload(editor, attachment as any, selFrom)
+          );
+          return;
+        }
         editor.storage.previewAttachment?.(attachment);
       }}
     />

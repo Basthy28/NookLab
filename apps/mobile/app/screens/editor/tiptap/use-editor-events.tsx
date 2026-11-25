@@ -21,7 +21,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 /* eslint-disable @typescript-eslint/no-var-requires */
 import { isFeatureAvailable, useAreFeaturesAvailable } from "@notesnook/common";
 import { ItemReference, parseInternalLink } from "@notesnook/core";
-import type { Attachment } from "@notesnook/editor";
+import type { Attachment, ImageAttributes } from "@notesnook/editor";
 import { EditorEvents } from "@notesnook/editor-mobile/src/utils/editor-events";
 import { NativeEvents } from "@notesnook/editor-mobile/src/utils/native-events";
 import { getDefaultPresets } from "@notesnook/editor/dist/cjs/toolbar/tool-definitions";
@@ -675,12 +675,28 @@ export const useEditorEvents = (
           break;
 
         case EditorEvents.previewAttachment: {
-          const hash = (editorMessage.value as Attachment)?.hash;
-          const attachment = await db.attachments?.attachment(hash);
-          if (!attachment) return;
-          if (attachment.mimeType.startsWith("image/")) {
-            eSendEvent("ImagePreview", editorMessage.value);
-          } else {
+          const payload = editorMessage.value as
+            | ImageAttributes
+            | Attachment
+            | undefined;
+          const hash = payload?.hash;
+          const attachment = hash
+            ? await db.attachments?.attachment(hash)
+            : undefined;
+          const hasGallery =
+            payload?.type === "image" &&
+            Array.isArray((payload as ImageAttributes).galleryImages) &&
+            (payload as ImageAttributes).galleryImages!.length > 0;
+          const hasInlineSrc =
+            payload?.type === "image" && !!(payload as ImageAttributes).src;
+          if (!attachment && !hasGallery && !hasInlineSrc) return;
+          if (
+            attachment?.mimeType?.startsWith("image/") ||
+            payload?.type === "image"
+          ) {
+            Keyboard.dismiss();
+            eSendEvent("ImagePreview", payload);
+          } else if (attachment) {
             eSendEvent("PDFPreview", attachment);
           }
           break;

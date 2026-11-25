@@ -458,6 +458,12 @@ export function useEditorController({
     );
   }, []);
   const previewAttachment = useCallback((attachment: Attachment) => {
+    const isImage =
+      (attachment as { type?: string })?.type === "image" ||
+      "galleryImages" in (attachment as object);
+    if (isImage && document.activeElement instanceof HTMLElement) {
+      document.activeElement.blur();
+    }
     post(
       EditorEvents.previewAttachment,
       attachment,
