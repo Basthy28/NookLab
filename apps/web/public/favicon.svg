@@ -1,5 +1,5 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 1000">
-    <rect width="1000" height="1000" rx="300" ry="300" />
+    <rect width="1000" height="1000" rx="300" ry="300" fill="#dc2626" />
     <g transform="translate(-65.392282 -65.444691) scale(1.1042818)">
         <g fill="#fff" clip-path="url(#a)">
             <path

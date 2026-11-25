@@ -75,7 +75,7 @@ export default defineConfig({
     }
   },
   define: {
-    APP_TITLE: `"${isThemeBuilder ? "Notesnook Theme Builder" : "Notesnook"}"`,
+    APP_TITLE: `"${isThemeBuilder ? "NookLab Theme Builder" : "NookLab"}"`,
     GIT_HASH: `"${gitHash}"`,
     APP_VERSION: `"${version}"`,
     PUBLIC_URL: `"${process.env.PUBLIC_URL || ""}"`,

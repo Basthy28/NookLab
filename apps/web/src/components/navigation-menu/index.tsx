@@ -350,7 +350,7 @@ function NavigationMenu({
                 display: "block"
               }}
             >
-              Notesnook
+              {APP_TITLE}
             </Text>
           </Flex>
           <Flex sx={{ gap: "small", alignItems: "center" }}>

@@ -96,7 +96,7 @@ export default function AppLock(props: PropsWithChildren<unknown>) {
     if (isLocked) {
       windowTitle.current = getDocumentTitle();
       // ../common/dialog-controller  closeOpenedDialog();
-      document.title = `Notesnook 🔒`;
+      document.title = `${APP_TITLE} 🔒`;
     } else {
       setDocumentTitle(windowTitle.current);
     }

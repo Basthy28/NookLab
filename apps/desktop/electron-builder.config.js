@@ -29,8 +29,8 @@ const buildFiles = [
   `!${buildRoot}/build/*.png`
 ];
 
-const productName = process.env.NN_PRODUCT_NAME || "Notesnook";
-const appId = process.env.NN_APP_ID || "org.streetwriters.notesnook";
+const productName = process.env.NN_PRODUCT_NAME || "NookLab";
+const appId = process.env.NN_APP_ID || "org.basthy28.nooklab";
 const outputDir = process.env.NN_OUTPUT_DIR || "output";
 const linuxExecutableName = process.env.NN_PRODUCT_NAME
   ? process.env.NN_PRODUCT_NAME.toLowerCase().replace(/\s+/g, "-")
@@ -45,7 +45,7 @@ module.exports = {
   appId: appId,
   productName: productName,
   copyright: `Copyright © ${year} Streetwriters (Private) Limited`,
-  artifactName: "notesnook_${os}_${arch}.${ext}",
+  artifactName: "nooklab_${os}_${arch}.${ext}",
   generateUpdatesFilesForAllChannels: true,
   asar: true,
   asarUnpack: [

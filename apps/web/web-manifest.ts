@@ -20,10 +20,10 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 import { ManifestOptions } from "vite-plugin-pwa";
 
 export const WEB_MANIFEST: Partial<ManifestOptions> = {
-  name: "Notesnook",
+  name: "NookLab",
   description:
     "A fully open source & end-to-end encrypted note taking alternative to Evernote.",
-  short_name: "Notesnook",
+  short_name: "NookLab",
   shortcuts: [
     {
       name: "New note",
@@ -122,10 +122,10 @@ export const WEB_MANIFEST: Partial<ManifestOptions> = {
       url: "https://apps.apple.com/us/app/notesnook-private-notes-app/id1544027013"
     }
   ],
-  prefer_related_applications: true,
+  prefer_related_applications: false,
   orientation: "any",
   start_url: ".",
-  theme_color: "#01c352",
+  theme_color: "#dc2626",
   background_color: "#ffffff",
   display: "standalone",
   categories: ["productivity", "lifestyle", "education", "books"]

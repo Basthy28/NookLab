@@ -133,9 +133,9 @@ android {
         sourceCompatibility JavaVersion.VERSION_1_8
         targetCompatibility JavaVersion.VERSION_1_8
     }
-    namespace "com.streetwriters.notesnook"
+    namespace "com.basthy28.nooklab"
     defaultConfig {
-        applicationId "com.streetwriters.notesnook"
+        applicationId "com.basthy28.nooklab"
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
         multiDexEnabled true
