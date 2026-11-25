@@ -131,7 +131,7 @@ const ImagePreview = () => {
       let hash = item.hash;
       const inlineData =
         !hash && item.src ? DataURL.toObject(item.src) : undefined;
-      if (!hash && inlineData) {
+      if (!hash && inlineData?.data) {
         hash = await Sodium.hashFile({
           data: inlineData.data,
           type: "base64",
@@ -147,22 +147,24 @@ const ImagePreview = () => {
         };
       }
 
-      if (!hash && item.src) {
-        if (inlineData) {
-          const ext = inlineData.type?.split("/")[1]?.split(";")[0] || "png";
-          const outPath = `${cacheDir}/NN_${sessionId}_${slideIndex}.${ext}`;
-          await RNFetchBlob.fs.writeFile(outPath, inlineData.data, "base64");
-          tempFilesRef.current.add(outPath);
-          const fileUri = "file://" + outPath;
-          const dims = (await measureImageSize(fileUri)) || fallback;
-          return {
-            uri: fileUri,
-            width: dims.width,
-            height: dims.height,
-            filename: item.filename
-          };
-        }
+      if (inlineData?.data && !(hash && (await db.attachments.attachment(hash)))) {
+        const ext = inlineData.mimeType?.split("/")[1]?.split(";")[0] || "png";
+        const outPath = `${cacheDir}/NN_${sessionId}_${slideIndex}.${ext}`;
+        await RNFetchBlob.fs.writeFile(outPath, inlineData.data, "base64");
+        tempFilesRef.current.add(outPath);
+        const fileUri = "file://" + outPath;
+        const dims = (await measureImageSize(fileUri)) || fallback;
+        const resolved: ResolvedSlide = {
+          uri: fileUri,
+          width: dims.width,
+          height: dims.height,
+          filename: item.filename
+        };
+        if (hash) hashCache.set(hash, resolved);
+        return resolved;
+      }
 
+      if (!hash && item.src) {
         const dims = (await measureImageSize(item.src)) || fallback;
         return {
           uri: item.src,
