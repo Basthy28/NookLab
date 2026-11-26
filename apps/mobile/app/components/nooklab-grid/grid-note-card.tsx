@@ -32,6 +32,7 @@ import { useNotePreview } from "./note-preview";
 
 type GridNoteCardProps = {
   item: Note | HighlightedResult;
+  fullNote?: Note;
   index: number;
   date: number;
   color?: Color;
@@ -67,6 +68,7 @@ function renderHighlightedTokens(
 export const GridNoteCard = React.memo(
   function GridNoteCard({
     item,
+    fullNote,
     index,
     date,
     color,
@@ -77,7 +79,7 @@ export const GridNoteCard = React.memo(
   }: GridNoteCardProps) {
     const { colors, isDark } = useThemeColors();
     const isSearchResult = item.type === "searchResult";
-    const noteItem = isSearchResult ? undefined : item;
+    const noteItem = isSearchResult ? fullNote : item;
     const searchItem = isSearchResult ? item : undefined;
     const isEditingNote = useTabStore(
       (state) =>
@@ -86,7 +88,7 @@ export const GridNoteCard = React.memo(
     );
     const selectionMode = useSelectionStore((state) => state.selectionMode);
     const [selected] = useIsSelected(item);
-    const bodyPreview = useNotePreview(item, locked);
+    const bodyPreview = useNotePreview(noteItem || item, locked);
 
     const colorHex = color?.colorCode;
     const isSelected = !isSearchResult && selectionMode === "note" && selected;
@@ -113,7 +115,7 @@ export const GridNoteCard = React.memo(
 
     const openSearchNote = async () => {
       if (!searchItem) return;
-      const note = await db.notes.note(searchItem.id);
+      const note = fullNote || (await db.notes.note(searchItem.id));
       if (!note) return;
       eSendEvent(eOnLoadNote, {
         item: {
@@ -220,15 +222,13 @@ export const GridNoteCard = React.memo(
                   fontWeight: "700"
                 }}
               >
-                {searchItem
-                  ? searchItem.title?.length
-                    ? renderHighlightedTokens(
-                        searchItem.title,
-                        colors.secondary.accent,
-                        colors.secondary.accentForeground,
-                        `${item.id}-t`
-                      )
-                    : "Untitled"
+                {searchItem?.title?.length
+                  ? renderHighlightedTokens(
+                      searchItem.title,
+                      colors.secondary.accent,
+                      colors.secondary.accentForeground,
+                      `${item.id}-t`
+                    )
                   : noteItem?.title || "Untitled"}
               </Paragraph>
 
@@ -283,6 +283,17 @@ export const GridNoteCard = React.memo(
                   Locked note
                 </Paragraph>
               </View>
+            ) : bodyPreview ? (
+              <Paragraph
+                numberOfLines={6}
+                size={AppFontSize.xxs}
+                color={colors.primary.paragraph}
+                style={{
+                  lineHeight: 16.5
+                }}
+              >
+                {bodyPreview}
+              </Paragraph>
             ) : searchItem?.content?.length ? (
               <View style={{ gap: 2, overflow: "hidden" }}>
                 {searchItem.content.slice(0, 4).map((group, gIdx) => (
@@ -302,17 +313,6 @@ export const GridNoteCard = React.memo(
                   </Paragraph>
                 ))}
               </View>
-            ) : bodyPreview ? (
-              <Paragraph
-                numberOfLines={6}
-                size={AppFontSize.xxs}
-                color={colors.primary.paragraph}
-                style={{
-                  lineHeight: 16.5
-                }}
-              >
-                {bodyPreview}
-              </Paragraph>
             ) : null}
           </View>
 
@@ -333,18 +333,7 @@ export const GridNoteCard = React.memo(
                 flexShrink: 1
               }}
             >
-              {searchItem ? (
-                <Paragraph
-                  numberOfLines={1}
-                  style={{
-                    fontSize: AppFontSize.xxxs,
-                    color: colorHex || colors.secondary.paragraph,
-                    fontWeight: "600"
-                  }}
-                >
-                  {matchCount > 0 ? `${matchCount} match${matchCount === 1 ? "" : "es"}` : "Match"}
-                </Paragraph>
-              ) : (
+              {noteItem ? (
                 <Paragraph
                   numberOfLines={1}
                   style={{
@@ -359,7 +348,20 @@ export const GridNoteCard = React.memo(
                       : "time"
                   )}
                 </Paragraph>
-              )}
+              ) : null}
+
+              {searchItem && matchCount > 0 ? (
+                <Paragraph
+                  numberOfLines={1}
+                  style={{
+                    fontSize: AppFontSize.xxxs,
+                    color: colorHex || colors.primary.accent,
+                    fontWeight: "600"
+                  }}
+                >
+                  {`${matchCount} match${matchCount === 1 ? "" : "es"}`}
+                </Paragraph>
+              ) : null}
 
               {firstTag ? (
                 <Paragraph
@@ -430,6 +432,11 @@ export const GridNoteCard = React.memo(
     prev.date === next.date &&
     prev.item?.id === next.item?.id &&
     prev.item?.type === next.item?.type &&
+    prev.fullNote?.id === next.fullNote?.id &&
+    prev.fullNote?.dateModified === next.fullNote?.dateModified &&
+    prev.fullNote?.title === next.fullNote?.title &&
+    prev.fullNote?.pinned === next.fullNote?.pinned &&
+    prev.fullNote?.favorite === next.fullNote?.favorite &&
     (prev.item?.type === "note" ? prev.item.dateModified : undefined) ===
       (next.item?.type === "note" ? next.item.dateModified : undefined) &&
     (prev.item?.type === "note"

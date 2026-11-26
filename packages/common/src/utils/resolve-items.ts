@@ -20,6 +20,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 import {
   Color,
   Item,
+  Note,
   Reminder,
   Notebook,
   Tag,
@@ -46,7 +47,8 @@ export async function resolveItems(ids: string[], items: Item[]) {
   if (!ids.length || !items.length) return [];
 
   const { type } = items[0];
-  if (type === "note" || type === "searchResult") return resolveNotes(ids);
+  if (type === "note") return resolveNotes(ids, false);
+  else if (type === "searchResult") return resolveNotes(ids, true);
   else if (type === "notebook") {
     return await db.notebooks.totalNotes(...ids);
   } else if (type === "tag") {
@@ -68,9 +70,10 @@ export type NoteResolvedData = {
     total: number;
   };
   locked?: boolean;
+  note?: Note;
 };
 
-async function resolveNotes(ids: string[]) {
+async function resolveNotes(ids: string[], includeFullNote = false) {
   const relations = [
     ...(await db.relations
       .to({ type: "note", ids }, ["notebook", "tag", "color"])
@@ -85,6 +88,9 @@ async function resolveNotes(ids: string[]) {
     .where("noteId", "in", ids)
     .select(["noteId", "locked"])
     .execute();
+  const fullNotes = includeFullNote
+    ? await db.notes.all.records(ids)
+    : undefined;
 
   const relationIds: {
     notebooks: Set<string>;
@@ -175,11 +181,22 @@ async function resolveNotes(ids: string[]) {
   for (const noteId of ids) {
     const group = grouped[noteId];
     if (!group) {
-      data.push({});
+      data.push(
+        includeFullNote
+          ? {
+              note: fullNotes?.[noteId],
+              notebooks: undefined,
+              reminder: undefined,
+              color: undefined,
+              tags: undefined
+            }
+          : {}
+      );
       continue;
     }
 
     data.push({
+      note: fullNotes?.[noteId],
       color: group.color ? resolved.colors[group.color] : undefined,
       reminder: getUpcomingReminder(
         group.reminders.map((id) => resolved.reminders[id]).filter(Boolean)

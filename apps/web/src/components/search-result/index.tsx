@@ -17,34 +17,53 @@ You should have received a copy of the GNU General Public License
 along with this program.  If not, see <http://www.gnu.org/licenses/>.
 */
 
-import { Color, HighlightedResult, Match as TMatch } from "@notesnook/core";
+import { NoteResolvedData } from "@notesnook/common";
+import {
+  getSortValue,
+  GroupingKey,
+  HighlightedResult,
+  Match as TMatch
+} from "@notesnook/core";
 import { Button, Flex, Text } from "@theme-ui/components";
 import React, { Fragment, useState } from "react";
 import { useEditorStore } from "../../stores/editor-store";
 import { useStore as useNoteStore } from "../../stores/note-store";
 import { useStore as useThemeStore } from "../../stores/theme-store";
 import ListItem from "../list-item";
+import { Context } from "../list-container/types";
 import { ChevronDown, ChevronRight } from "../icons";
 import { db } from "../../common/db";
-import { useMenuTrigger } from "../../hooks/use-menu";
+import { GridNoteCard } from "../nooklab-grid/grid-note-card";
 import { noteMenuItems } from "../note";
 import { MenuItem } from "@notesnook/ui";
 
-type SearchResultProps = {
+type SearchResultProps = Partial<NoteResolvedData> & {
   item: HighlightedResult;
-  color?: Color;
   grid?: boolean;
+  group?: GroupingKey;
+  context?: Context;
 };
 
 function SearchResult(props: SearchResultProps) {
-  const { item, color, grid } = props;
+  const {
+    item,
+    color,
+    note,
+    tags,
+    notebooks,
+    reminder,
+    attachments,
+    locked,
+    grid,
+    group,
+    context
+  } = props;
 
   const isOpened = useEditorStore((store) => store.isNoteOpen(item.id));
   const isExpandable = item.content.length > 0;
   const [isExpanded, setIsExpanded] = useState(isExpandable);
   const isCompact = useNoteStore((store) => store.viewMode === "compact");
   const colorScheme = useThemeStore((store) => store.colorScheme);
-  const { openMenu } = useMenuTrigger();
 
   if (!item.title.length && !item.content.length) return null;
 
@@ -61,6 +80,35 @@ function SearchResult(props: SearchResultProps) {
     ? `color-mix(in srgb, ${colorHex} ${isDark ? 45 : 55}%, transparent)`
     : undefined;
 
+  if (grid && note) {
+    const sortOptions = db.settings.getGroupOptions(group || "notes");
+    const date = getSortValue(sortOptions, note) || note.dateEdited;
+    return (
+      <GridNoteCard
+        item={note}
+        date={date}
+        context={context}
+        color={color}
+        tags={tags}
+        notebooks={notebooks}
+        reminder={reminder}
+        attachments={attachments}
+        locked={locked}
+        rawContent={item.rawContent}
+        badgeText={matchTotal > 0 ? String(matchTotal) : undefined}
+        titleOverride={
+          item.title.length ? (
+            <>
+              {item.title.map((match, i) => (
+                <Match key={match.id || i} match={match} />
+              ))}
+            </>
+          ) : undefined
+        }
+      />
+    );
+  }
+
   if (grid) {
     return (
       <Flex
@@ -71,12 +119,6 @@ function SearchResult(props: SearchResultProps) {
             rawContent: item.rawContent,
             force: true
           });
-        }}
-        onContextMenu={async (e) => {
-          e.preventDefault();
-          e.stopPropagation();
-          const items = await menuItems(item);
-          if (items.length) openMenu(items);
         }}
         sx={{
           height: "100%",
@@ -95,8 +137,7 @@ function SearchResult(props: SearchResultProps) {
           borderTop: colorHex ? `4px solid ${colorHex}` : undefined,
           cursor: "pointer",
           overflow: "hidden",
-          boxShadow: "0 1px 3px rgba(0,0,0,0.22)",
-          ":hover": { filter: isDark ? "brightness(1.08)" : "brightness(0.97)" }
+          boxShadow: "0 1px 3px rgba(0,0,0,0.22)"
         }}
       >
         <Flex sx={{ flexDirection: "column", flex: 1, minHeight: 0, gap: "6px" }}>
@@ -121,39 +162,17 @@ function SearchResult(props: SearchResultProps) {
               ))}
             </Text>
             {matchTotal > 0 ? (
-              <Text
-                variant="subBody"
-                sx={{
-                  flexShrink: 0,
-                  color: colorHex || "paragraph"
-                }}
-              >
+              <Text variant="subBody" sx={{ flexShrink: 0, color: colorHex || "paragraph" }}>
                 {matchTotal}
               </Text>
             ) : null}
           </Flex>
-
-          <Flex
-            sx={{
-              flexDirection: "column",
-              gap: "4px",
-              overflow: "hidden",
-              flex: 1
-            }}
-          >
+          <Flex sx={{ flexDirection: "column", gap: "4px", overflow: "hidden", flex: 1 }}>
             {item.content.slice(0, 4).map((group, index) => (
               <Text
                 key={`${item.id}_g_${index}`}
                 variant="body"
                 color={isOpened ? "paragraph-selected" : "paragraph"}
-                onClick={(e) => {
-                  e.stopPropagation();
-                  useEditorStore.getState().openSession(item.id, {
-                    rawContent: item.rawContent,
-                    force: true,
-                    activeSearchResultId: group[0]?.id
-                  });
-                }}
                 sx={{
                   fontSize: "12px",
                   lineHeight: 1.35,

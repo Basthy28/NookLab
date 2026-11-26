@@ -35,6 +35,7 @@ import { GridNoteCard } from "./grid-note-card";
 
 type ResolvedNoteState = {
   item: Note | HighlightedResult;
+  fullNote?: Note;
   color?: Color;
   tags?: TagsWithDateEdited;
   reminder?: Reminder;
@@ -55,6 +56,7 @@ function GridNoteCell({
   const { colors } = useThemeColors();
   const [resolved, setResolved] = useState<ResolvedNoteState | null>(null);
   const currentIndex = useRef<number>(-1);
+  const currentItems = useRef<VirtualizedGrouping<Item> | undefined>(undefined);
   const timer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
 
   const applyResolved = useCallback((entry: any) => {
@@ -63,6 +65,7 @@ function GridNoteCell({
     const data = isNoteResolvedData(entry.data) ? entry.data : undefined;
     setResolved({
       item: item as Note | HighlightedResult,
+      fullNote: data?.note,
       color: data?.color,
       tags: data?.tags,
       reminder: data?.reminder,
@@ -72,8 +75,9 @@ function GridNoteCell({
     });
   }, []);
 
-  if (currentIndex.current !== index) {
+  if (currentIndex.current !== index || currentItems.current !== items) {
     currentIndex.current = index;
+    currentItems.current = items;
     const cached = items?.cacheItem(index);
     if (
       cached?.item &&
@@ -82,6 +86,7 @@ function GridNoteCell({
       const data = isNoteResolvedData(cached.data) ? cached.data : undefined;
       const next: ResolvedNoteState = {
         item: cached.item as Note | HighlightedResult,
+        fullNote: data?.note,
         color: data?.color,
         tags: data?.tags,
         reminder: data?.reminder,
@@ -91,7 +96,8 @@ function GridNoteCell({
       };
       if (
         resolved?.item?.id !== next.item.id ||
-        resolved?.color?.colorCode !== next.color?.colorCode
+        resolved?.color?.colorCode !== next.color?.colorCode ||
+        resolved?.fullNote?.dateModified !== next.fullNote?.dateModified
       ) {
         setResolved(next);
       }
@@ -103,18 +109,21 @@ function GridNoteCell({
   useEffect(() => {
     clearTimeout(timer.current);
     const idx = index;
+    const activeItems = items;
     timer.current = setTimeout(
       async () => {
         try {
-          if (idx !== currentIndex.current) return;
-          const entry = await items?.item(idx, resolveItems);
-          if (idx !== currentIndex.current) return;
+          if (idx !== currentIndex.current || activeItems !== currentItems.current)
+            return;
+          const entry = await activeItems?.item(idx, resolveItems);
+          if (idx !== currentIndex.current || activeItems !== currentItems.current)
+            return;
           applyResolved(entry);
         } catch {
           /* ignore */
         }
       },
-      items?.cacheItem(index) ? 80 : 0
+      items?.cacheItem(index)?.data ? 40 : 0
     );
     return () => clearTimeout(timer.current);
   }, [index, items, applyResolved]);
@@ -138,11 +147,14 @@ function GridNoteCell({
     <View style={{ flex: 1 }}>
       <GridNoteCard
         item={resolved.item}
+        fullNote={resolved.fullNote}
         index={index}
         date={
           resolved.item.type === "note"
             ? getSortValue(groupOptions, resolved.item) || 0
-            : Date.now()
+            : resolved.fullNote
+              ? getSortValue(groupOptions, resolved.fullNote) || 0
+              : Date.now()
         }
         color={resolved.color}
         tags={resolved.tags}

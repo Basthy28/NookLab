@@ -17,6 +17,7 @@ You should have received a copy of the GNU General Public License
 along with this program.  If not, see <http://www.gnu.org/licenses/>.
 */
 
+import { resolveItems } from "@notesnook/common";
 import {
   FilteredSelector,
   Item,
@@ -101,7 +102,7 @@ export const Search = ({ route, navigation }: NavigationProps<"Search">) => {
           `Found ${results.placeholders?.length} results for ${query}`
         );
         if (currentQuery.current !== query) return;
-        await results.item(0);
+        await results.item(0, resolveItems);
         if (currentQuery.current !== query) return;
         setResults(results);
         if (results.placeholders?.length === 0) {

@@ -89,9 +89,11 @@ export class VirtualizedGrouping<T> {
   ): Promise<{ item?: T; group?: GroupHeader; data: unknown }>;
   async item(index: number, operate?: BatchOperator<T>) {
     const batchIndex = Math.floor(index / this.batchSize);
+    const cached = this.cache.get(batchIndex);
     const { items, groups, data } =
-      this.cache.get(batchIndex) ||
-      (await this.batchLoader(batchIndex, operate));
+      cached && (!operate || cached.data !== undefined)
+        ? cached
+        : await this.batchLoader(batchIndex, operate, cached);
 
     const itemIndexInBatch = index - batchIndex * this.batchSize;
     const group = groups?.get(itemIndexInBatch);
@@ -108,8 +110,17 @@ export class VirtualizedGrouping<T> {
    */
   private async load(
     batchIndex: number,
-    operate?: BatchOperator<T>
+    operate?: BatchOperator<T>,
+    existingBatch?: Batch<T>
   ): Promise<Batch<T>> {
+    if (existingBatch) {
+      if (operate && existingBatch.data === undefined) {
+        const ids = existingBatch.items.map((item: any) => item.id);
+        existingBatch.data = await operate(ids, existingBatch.items);
+      }
+      return existingBatch;
+    }
+
     const [lastBatchIndex, lastBatch] = lastInMap(this.cache) || [];
 
     const direction =
@@ -158,9 +169,13 @@ export class VirtualizedGrouping<T> {
     return batch;
   }
 
-  private batchLoader(batch: number, operate?: BatchOperator<T>) {
+  private batchLoader(
+    batch: number,
+    operate?: BatchOperator<T>,
+    existingBatch?: Batch<T>
+  ) {
     if (this.pending.has(batch)) return this.pending.get(batch)!;
-    const promise = this.load(batch, operate);
+    const promise = this.load(batch, operate, existingBatch);
     this.pending.set(batch, promise);
     return promise.finally(() => {
       this.pending.delete(batch);

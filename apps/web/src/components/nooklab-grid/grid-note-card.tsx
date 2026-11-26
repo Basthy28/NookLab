@@ -18,7 +18,7 @@ import {
 import { strings } from "@notesnook/intl";
 import { SchemeColors } from "@notesnook/theme";
 import { Flex, Text } from "@theme-ui/components";
-import { useRef, type MouseEvent } from "react";
+import { useRef, type MouseEvent, type ReactNode } from "react";
 import { Multiselect } from "../../common/multi-select";
 import { useMenuTrigger } from "../../hooks/use-menu";
 import { navigate } from "../../navigation";
@@ -54,6 +54,9 @@ type GridNoteCardProps = NoteResolvedData & {
   item: NoteType;
   date: number;
   context?: Context;
+  titleOverride?: ReactNode;
+  badgeText?: string;
+  rawContent?: string;
 };
 
 export function GridNoteCard({
@@ -65,7 +68,10 @@ export function GridNoteCard({
   attachments,
   locked,
   reminder,
-  context
+  context,
+  titleOverride,
+  badgeText,
+  rawContent
 }: GridNoteCardProps) {
   const cardRef = useRef<HTMLDivElement>(null);
   const dateFormat = useSettingStore((store) => store.dateFormat);
@@ -121,7 +127,14 @@ export function GridNoteCard({
       title={item.title}
       onClick={(e: MouseEvent<HTMLDivElement>) => {
         if (!e.metaKey && !e.shiftKey && !e.ctrlKey) {
-          useEditorStore.getState().openSession(item);
+          if (rawContent) {
+            useEditorStore.getState().openSession(item.id, {
+              rawContent,
+              force: true
+            });
+          } else {
+            useEditorStore.getState().openSession(item);
+          }
         }
       }}
       onMouseDown={(e: MouseEvent<HTMLDivElement>) => {
@@ -177,22 +190,42 @@ export function GridNoteCard({
       }}
     >
       <Flex sx={{ flexDirection: "column", flex: 1, minHeight: 0, minWidth: 0 }}>
-        <Text
-          data-test-id="title"
-          sx={{
-            display: "block",
-            flexShrink: 0,
-            fontWeight: 700,
-            fontSize: 14.5,
-            lineHeight: 1.3,
-            whiteSpace: "nowrap",
-            overflow: "hidden",
-            textOverflow: "ellipsis",
-            color: "heading"
-          }}
-        >
-          {item.title || strings.untitled()}
-        </Text>
+        <Flex sx={{ alignItems: "center", justifyContent: "space-between", gap: "6px", flexShrink: 0 }}>
+          <Text
+            data-test-id="title"
+            sx={{
+              display: "block",
+              flex: 1,
+              minWidth: 0,
+              fontWeight: 700,
+              fontSize: 14.5,
+              lineHeight: 1.3,
+              whiteSpace: "nowrap",
+              overflow: "hidden",
+              textOverflow: "ellipsis",
+              color: "heading",
+              ".match": {
+                bg: "accent-secondary",
+                color: "accentForeground-secondary"
+              }
+            }}
+          >
+            {titleOverride || item.title || strings.untitled()}
+          </Text>
+          {badgeText ? (
+            <Text
+              variant="subBody"
+              sx={{
+                flexShrink: 0,
+                fontSize: 11,
+                fontWeight: 600,
+                color: primary
+              }}
+            >
+              {badgeText}
+            </Text>
+          ) : null}
+        </Flex>
         <div style={{ flex: 1, minHeight: 0, overflow: "hidden" }}>
           {locked ? (
             <Text

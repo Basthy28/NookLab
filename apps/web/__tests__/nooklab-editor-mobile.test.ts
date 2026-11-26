@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { VirtualizedGrouping } from "../../../packages/core/src/utils/virtualized-grouping";
 import { filterPromotedTools } from "../../../packages/editor-mobile/src/common/nooklab-toolbar-helpers";
 import { buildImageGalleryPayload } from "../../../packages/editor/src/extensions/image/gallery";
 
@@ -52,5 +53,33 @@ describe("NookLab mobile editor toolbar and image gallery helpers", () => {
     expect(payload.galleryImages).toHaveLength(3);
     expect(payload.galleryImages?.map((i) => i.hash)).toEqual(["img1", "img2", "img1"]);
     expect(payload.currentIndex).toBe(2);
+  });
+
+  it("populates missing batch data when VirtualizedGrouping.item is later called with operate", async () => {
+    const items = [
+      { id: "n1", type: "searchResult" as const },
+      { id: "n2", type: "searchResult" as const }
+    ];
+    let fetchCount = 0;
+    const grouping = new VirtualizedGrouping<any>(
+      items.length,
+      20,
+      async () => items.map((i) => i.id),
+      async () => {
+        fetchCount++;
+        return { ids: items.map((i) => i.id), items };
+      }
+    );
+
+    const first = await grouping.item(0);
+    expect(first.item?.id).toBe("n1");
+    expect((first as any).data).toBeUndefined();
+    expect(fetchCount).toBe(1);
+
+    const resolved = await grouping.item(1, async (ids) =>
+      ids.map((id) => ({ color: { colorCode: "#dc2626", id } }))
+    );
+    expect(fetchCount).toBe(1);
+    expect((resolved.data as any)?.color?.colorCode).toBe("#dc2626");
   });
 });
