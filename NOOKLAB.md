@@ -19,6 +19,10 @@ NookLab is maintained as a clean, atomic patch stack on branch `nooklab`, rebase
 13. `common: resolve note colors for search results on web and mobile`
 14. `mobile: open note photos on single tap with swipeable zoom gallery`
 15. `docs: document dark toolbar, search color, and photo gallery patches`
+16. `mobile: fix DataURL type guards in image preview gallery`
+17. `core: fix search result batch color resolution and show full grid note info`
+18. `editor: add quick note color square button to web and mobile toolbars`
+19. `docs: update NookLab patch stack documentation`
 
 ## Automated Upstream Sync, VPS Deploy & Conflict Alerts
 
