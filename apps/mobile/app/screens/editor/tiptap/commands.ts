@@ -17,7 +17,7 @@ You should have received a copy of the GNU General Public License
 along with this program.  If not, see <http://www.gnu.org/licenses/>.
 */
 
-import { Note } from "@notesnook/core";
+import { Color, Note } from "@notesnook/core";
 import type {
   Attachment,
   ImageAttributes,
@@ -180,6 +180,25 @@ class Commands {
 
   clearTags = async (tabId: string) => {
     await this.sendCommand("clearTags", tabId);
+  };
+
+  setNoteColorByTab = async (tabId: string, color: Color | null) => {
+    await this.sendCommand(
+      "setNoteColor",
+      tabId,
+      color
+        ? { id: color.id, title: color.title, colorCode: color.colorCode }
+        : null
+    );
+  };
+
+  setNoteColor = async (note: Note | null | undefined) => {
+    if (!note) return;
+    const colors = await db.relations.to(note, "color").resolve();
+    const active = colors[0] || null;
+    useTabStore.getState().forEachNoteTab(note.id, async (tab) => {
+      await this.setNoteColorByTab(tab.id, active);
+    });
   };
 
   insertAttachment = async (attachment: Attachment, tabId: string) => {

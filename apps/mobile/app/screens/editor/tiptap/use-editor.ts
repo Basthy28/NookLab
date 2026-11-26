@@ -52,6 +52,7 @@ import { NotePreviewWidget } from "../../../services/note-preview-widget";
 import { PinnedNotesWidget } from "../../../services/pinned-notes-widget";
 import Notifications from "../../../services/notifications";
 import SettingsService from "../../../services/settings";
+import { useRelationStore } from "../../../stores/use-relation-store";
 import { useSettingStore } from "../../../stores/use-setting-store";
 import { useTagStore } from "../../../stores/use-tag-store";
 import {
@@ -252,6 +253,7 @@ export const useEditor = (
       resetContent && postMessage(NativeEvents.title, "", tabId);
       resetContent && (await commands.clearContent(tabId));
       resetContent && (await commands.clearTags(tabId));
+      resetContent && (await commands.setNoteColorByTab(tabId, null));
     },
     [commands, editorSessionHistory, postMessage]
   );
@@ -779,6 +781,7 @@ export const useEditor = (
           }, 300);
 
           await commands.setTags(item);
+          await commands.setNoteColor(item);
           commands.setSettings();
           setTimeout(() => {
             if (currentLoadingNoteId.current === event.item?.id) {
@@ -968,6 +971,18 @@ export const useEditor = (
     },
     [postMessage, commands]
   );
+
+  const relationUpdater = useRelationStore((state) => state.updater);
+  useEffect(() => {
+    const activeTab = useTabStore.getState().currentTab;
+    const activeNoteId = activeTab
+      ? useTabStore.getState().getNoteIdForTab(activeTab)
+      : undefined;
+    if (!activeNoteId) return;
+    db.notes.note(activeNoteId).then((n) => {
+      if (n) commands.setNoteColor(n);
+    });
+  }, [commands, relationUpdater]);
 
   useEffect(() => {
     const subs = [

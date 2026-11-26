@@ -56,5 +56,6 @@ export const EditorEvents = {
   saveScroll: "editor-events:save-scroll",
   newNote: "editor-events:new-note",
   downloadCsv: "editor-events:download-csv",
-  getLinkData: "editor-events:get-link-data"
+  getLinkData: "editor-events:get-link-data",
+  noteColor: "editor-event:note-color"
 } as const;

@@ -20,6 +20,7 @@ import {
   toggleAutocorrect,
   useAutocorrectEnabled
 } from "../../common/nooklab-autocorrect";
+import { NookLabNoteColorTool } from "./nooklab-note-color-tool";
 import { NookLabSheetTool } from "./nooklab-sheet-tool";
 
 const PROMOTED_TOOL_IDS = new Set<ToolId>(["textColor", "highlight"]);
@@ -165,6 +166,7 @@ export function NookLabToolbarRow({ editor }: { editor: Editor }) {
         {directActions.map((action) => (
           <DirectToolButton key={action.id} {...action} />
         ))}
+        <NookLabNoteColorTool />
         <NookLabSheetTool editor={editor} />
       </Flex>
     </Flex>

@@ -41,6 +41,7 @@ import { WebViewMessageEvent } from "react-native-webview";
 import { DatabaseLogger, db } from "../../../common/database";
 import downloadAttachment from "../../../common/filesystem/download-attachment";
 import { AuthMode } from "../../../components/auth/common";
+import { NookLabNoteColorSheet } from "../../../components/nooklab-grid/note-color-sheet";
 import { Properties } from "../../../components/properties";
 import EditorTabs from "../../../components/sheets/editor-tabs";
 import { Issue } from "../../../components/sheets/github/issue";
@@ -655,6 +656,30 @@ export const useEditorEvents = (
         case EditorEvents.properties:
           showActionsheet();
           break;
+        case EditorEvents.noteColor: {
+          Keyboard.dismiss();
+          const targetId = editorMessage.noteId || noteId;
+          const activeNote = targetId ? await db.notes.note(targetId) : undefined;
+          if (!activeNote) {
+            ToastManager.show({
+              message: "Write something first to set a note color",
+              type: "info"
+            });
+            return;
+          }
+          presentSheet({
+            component: (_ref, close) => (
+              <NookLabNoteColorSheet
+                note={activeNote}
+                onColorUpdated={(color) => {
+                  editor.commands.setNoteColorByTab(editorMessage.tabId, color);
+                }}
+                close={close}
+              />
+            )
+          });
+          break;
+        }
         case EditorEvents.scroll:
           editorState().scrollPosition = editorMessage.value;
           break;

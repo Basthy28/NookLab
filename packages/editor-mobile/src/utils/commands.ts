@@ -19,6 +19,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 import { Attachment, ImageAttributes, LinkAttributes } from "@notesnook/editor";
 import { Settings } from ".";
+import { setTabNoteColor } from "../common/nooklab-note-color";
 import { useSafeAreaStore } from "../hooks/useSafeArea";
 import { useSettingsStore } from "../hooks/useSettings";
 
@@ -50,6 +51,7 @@ globalThis.commands = {
         statusBar.current.resetWords();
         statusBar.current.set({ date: "", saved: "" });
       }
+      setTabNoteColor(tabId, null);
     } catch (error) {
       logger("error", "clearContent", error, (error as Error).stack);
     }
@@ -122,6 +124,10 @@ globalThis.commands = {
     if (tags?.current) {
       tags.current.setTags([]);
     }
+  },
+
+  setNoteColor: (tabId: string, color: any) => {
+    setTabNoteColor(tabId, color || null);
   },
 
   insertAttachment: (attachment: Attachment, tabId: number) => {

@@ -28,5 +28,6 @@ export const NativeEvents = {
   keyboardShown: "native:keyboardShown",
   attachmentData: "native:attachment-data",
   resolve: "native:resolve",
-  session: "native:session"
+  session: "native:session",
+  noteColor: "native:noteColor"
 };

@@ -19,7 +19,10 @@ import {
   toggleAutocorrect,
   useAutocorrectEnabled
 } from "../common/nooklab-autocorrect";
+import { useTabNoteColor } from "../common/nooklab-note-color";
 export { filterPromotedTools } from "../common/nooklab-toolbar-helpers";
+import { useTabContext } from "../hooks/useTabStore";
+import { EditorEvents } from "../utils/editor-events";
 import { NookLabSheetTool } from "./nooklab-sheet-tool";
 
 type DirectToolButtonProps = {
@@ -77,6 +80,8 @@ function DirectToolButton({
 export function NookLabToolbarRow({ editor }: { editor: Editor }) {
   const { colors } = useThemeColors("editorToolbar");
   const autocorrectEnabled = useAutocorrectEnabled();
+  const tab = useTabContext();
+  const noteColor = useTabNoteColor(tab.id);
   if (!editor.isEditable) return null;
 
   const TextColorTool = findTool("textColor");
@@ -171,6 +176,46 @@ export function NookLabToolbarRow({ editor }: { editor: Editor }) {
             activeBackground={activeBackground}
           />
         ))}
+        <button
+          type="button"
+          id="tool-nooklab-note-color"
+          title={
+            noteColor?.title ? `Note color: ${noteColor.title}` : "Note color"
+          }
+          tabIndex={-1}
+          onMouseDown={(e) => e.preventDefault()}
+          onClick={() =>
+            post(EditorEvents.noteColor, null, tab.id, tab.session?.noteId)
+          }
+          style={{
+            height: "28px",
+            width: "28px",
+            flexShrink: 0,
+            padding: "4px",
+            borderRadius: "6px",
+            border: "none",
+            margin: 0,
+            display: "inline-flex",
+            alignItems: "center",
+            justifyContent: "center",
+            cursor: "pointer",
+            backgroundColor: "transparent"
+          }}
+        >
+          <span
+            aria-hidden="true"
+            style={{
+              width: "16px",
+              height: "16px",
+              borderRadius: "4px",
+              display: "inline-block",
+              backgroundColor: noteColor?.colorCode || "transparent",
+              border: noteColor?.colorCode
+                ? `1.5px solid ${colors.primary.border || "rgba(255,255,255,0.4)"}`
+                : `2px solid ${iconColor}`
+            }}
+          />
+        </button>
         <NookLabSheetTool editor={editor} />
       </div>
     </div>
