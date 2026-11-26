@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import { VirtualizedGrouping } from "../../../packages/core/src/utils/virtualized-grouping";
 import { filterPromotedTools } from "../../../packages/editor-mobile/src/common/nooklab-toolbar-helpers";
 import { buildImageGalleryPayload } from "../../../packages/editor/src/extensions/image/gallery";
+import { getPosition } from "../../../packages/ui/src/utils/position";
 
 describe("NookLab mobile editor toolbar and image gallery helpers", () => {
   it("removes promoted color tools from top bar definitions without mutating source", () => {
@@ -81,5 +82,39 @@ describe("NookLab mobile editor toolbar and image gallery helpers", () => {
     );
     expect(fetchCount).toBe(1);
     expect((resolved.data as any)?.color?.colorCode).toBe("#dc2626");
+  });
+
+  it("anchors toolbar popover beneath viewport coordinates when isTargetAbsolute is true", () => {
+    const button = document.createElement("button");
+    Object.defineProperty(button, "offsetLeft", { value: 180 });
+    Object.defineProperty(button, "offsetTop", { value: 36 });
+    button.getBoundingClientRect = () =>
+      ({
+        x: 760,
+        y: 120,
+        width: 28,
+        height: 28,
+        top: 120,
+        left: 760,
+        right: 788,
+        bottom: 148,
+        toJSON: () => ({})
+      }) as DOMRect;
+
+    const popup = document.createElement("div");
+    Object.defineProperty(popup, "offsetWidth", { value: 240 });
+    Object.defineProperty(popup, "offsetHeight", { value: 200 });
+
+    const parent = { clientWidth: 1440, clientHeight: 900 } as HTMLElement;
+    const pos = getPosition(popup, {
+      isTargetAbsolute: true,
+      target: button,
+      align: "start",
+      location: "below",
+      yOffset: 6,
+      parent
+    });
+
+    expect(pos).toEqual({ left: 760, top: 154 });
   });
 });

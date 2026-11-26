@@ -139,8 +139,9 @@ export function NookLabNoteColorTool() {
         isOpen={isOpen}
         onClose={() => setIsOpen(false)}
         position={{
-          target: buttonRef.current || "mouse",
-          align: "end",
+          isTargetAbsolute: true,
+          target: buttonRef.current,
+          align: "start",
           location: "below",
           yOffset: 6
         }}
@@ -184,7 +185,14 @@ export function NookLabNoteColorTool() {
           </Flex>
 
           {colors.length > 0 ? (
-            <Flex sx={{ flexDirection: "column", gap: "4px" }}>
+            <Flex
+              sx={{
+                flexDirection: "column",
+                gap: "4px",
+                maxHeight: "260px",
+                overflowY: "auto"
+              }}
+            >
               {colors.map((color) => {
                 const active = noteColor?.id === color.id;
                 return (
